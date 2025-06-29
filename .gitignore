@@ -1,0 +1,17 @@
+# Archivos de video y streams generados
+# Ignoramos los archivos de video específicos y cualquier otro que se genere.
+tu_video.mp4
+output.ts
+
+# También mantenemos las reglas generales por si se añaden otros videos.
+*.mp4
+*.ts
+
+# Variables de entorno (contienen secretos y no deben estar en Git)
+.env
+
+# Archivos de cache de Python
+__pycache__/
+
+# Configuraciones del editor
+.vscode/

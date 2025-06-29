@@ -1,0 +1,10 @@
+# srt_monitor_api_py/.dockerignore
+.git
+.venv
+__pycache__
+*.pyc
+*.log
+.DS_Store
+.env # Si usas .env para secrets, no deberías copiarlo directamente al contenedor
+     # en producción, sino inyectar las vars de entorno al ejecutar el contenedor.
+     # Para desarrollo local, si lo quieres dentro, bórralo de aquí.
