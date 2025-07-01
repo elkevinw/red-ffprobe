@@ -1,94 +1,160 @@
+/* General Body and Font Styles */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f7f9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f0f2f5;
     color: #333;
     margin: 0;
-    padding: 20px;
     line-height: 1.6;
 }
 
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    background: #fff;
-    padding: 20px 30px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
 header {
-    border-bottom: 2px solid #eef;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-    text-align: center;
+    background-color: #fff;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 header h1 {
     margin: 0;
-    color: #2c3e50;
+    font-size: 1.5rem;
+    color: #1c1e21;
 }
 
-.status-card, .data-card, .error-card {
-    background: #fafafa;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 20px;
-    margin-bottom: 20px;
+main {
+    padding: 2rem;
 }
 
-.status-card h2, .data-card h2, .error-card h2 {
-    margin-top: 0;
-    color: #34495e;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-}
-
-.indicator {
-    display: inline-block;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    margin-right: 10px;
-    vertical-align: middle;
-    background-color: #ccc; /* Default: gris */
-}
-
-.indicator.active {
-    background-color: #2ecc71; /* Verde */
-}
-
-.indicator.inactive {
-    background-color: #e74c3c; /* Rojo */
-}
-
-#status-text {
-    font-weight: bold;
-    font-size: 1.1em;
-}
-
-pre {
-    background: #2c3e50;
-    color: #ecf0f1;
-    padding: 15px;
-    border-radius: 4px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: "Menlo", "Consolas", monospace;
-    font-size: 0.9em;
-}
-
-.error-card {
-    background-color: #fbeae5;
-    border-color: #e74c3c;
-}
-
-.error-card h2 {
-    color: #e74c3c;
-}
-
-footer {
+/* Connection Status Bar */
+.connection-status-bar {
+    padding: 0.75rem;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
     text-align: center;
-    margin-top: 20px;
-    font-size: 0.9em;
-    color: #7f8c8d;
+    font-weight: 500;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.connection-status-bar.connected {
+    background-color: #e9f5e9;
+    color: #34a853;
+}
+
+.connection-status-bar.disconnected {
+    background-color: #fce8e6;
+    color: #ea4335;
+}
+
+/* Grid for Channel Cards */
+.channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Individual Channel Card */
+.channel-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 5px solid #ccc; /* Default border */
+}
+
+.channel-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+    flex-grow: 1;
+}
+
+.card-body p {
+    margin: 0 0 0.5rem 0;
+}
+
+.card-footer {
+    background-color: #f9f9f9;
+    padding: 1rem 1.5rem;
+    text-align: right;
+}
+
+/* Status Indicator Styles */
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: background-color 0.3s;
+}
+
+.channel-card.active {
+    border-left-color: #34a853; /* Green */
+}
+.channel-card.active .status-indicator {
+    background-color: #34a853;
+}
+
+.channel-card.crashed {
+    border-left-color: #ea4335; /* Red */
+}
+.channel-card.crashed .status-indicator {
+    background-color: #ea4335;
+}
+
+.channel-card.inactive {
+    border-left-color: #9aa0a6; /* Gray */
+}
+.channel-card.inactive .status-indicator {
+    background-color: #9aa0a6;
+}
+
+.channel-card.listening {
+    border-left-color: #ffc107; /* Yellow/Orange */
+}
+.channel-card.listening .status-indicator {
+    background-color: #ffc107;
+}
+
+.status-text {
+    font-weight: bold;
+}
+
+/* Restart Button */
+.restart-btn {
+    background-color: #4285f4; /* Google Blue */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.restart-btn:hover {
+    background-color: #3367d6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.restart-btn:disabled {
+    background-color: #9aa0a6;
+    cursor: not-allowed;
 }

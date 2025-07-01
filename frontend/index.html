@@ -3,36 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SRT Stream Monitor</title>
+    <title>Real-Time Channel Monitor</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>SRT Stream Monitor</h1>
-        </header>
-        <main>
-            <div class="status-card">
-                <h2>Estado Actual</h2>
-                <p>
-                    <span id="status-indicator" class="indicator"></span>
-                    <span id="status-text">Cargando...</span>
-                </p>
-                <p><strong>Última actualización:</strong> <span id="last-updated">N/A</span></p>
-            </div>
-            <div class="data-card">
-                <h2>Datos de FFprobe</h2>
-                <pre id="ffprobe-data">Cargando datos...</pre>
-            </div>
-            <div id="error-card" class="error-card" style="display: none;">
-                <h2>Error</h2>
-                <p id="error-message"></p>
-            </div>
-        </main>
-        <footer>
-            <p>Actualizando automáticamente cada 5 segundos.</p>
-        </footer>
-    </div>
+    <header>
+        <h1>Real-Time Channel Monitor</h1>
+    </header>
+    <main>
+        <div id="status-message" class="connection-status-bar">Connecting to server...</div>
+        <div id="channels-container" class="channels-grid">
+            <!-- Los canales se insertarán aquí dinámicamente -->
+        </div>
+    </main>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

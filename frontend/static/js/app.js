@@ -1,63 +1,95 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_URL = '/api/srt/status'; // Corregido: esta es la ruta correcta
-    const POLLING_INTERVAL = 5000; // 5 segundos
+    const channelsContainer = document.getElementById('channels-container');
+    const statusMessage = document.getElementById('status-message');
+    let socket;
 
-    const statusIndicator = document.getElementById('status-indicator');
-    const statusText = document.getElementById('status-text');
-    const lastUpdated = document.getElementById('last-updated');
-    const ffprobeData = document.getElementById('ffprobe-data');
-    const errorCard = document.getElementById('error-card');
-    const errorMessage = document.getElementById('error-message');
+    function connect() {
+        // Asegura que la URL del WebSocket sea correcta para tu entorno
+        const wsUrl = `ws://${window.location.host}/ws`;
+        socket = new WebSocket(wsUrl);
 
-    // Función para obtener y actualizar el estado
-    async function fetchStatus() {
-        try {
-            const response = await fetch(API_URL);
-            if (!response.ok) {
-                throw new Error(`Error en la API: ${response.statusText}`);
+        socket.onopen = function() {
+            console.log("WebSocket connection established.");
+            if (statusMessage) {
+                statusMessage.textContent = 'Connected to server...';
+                statusMessage.className = 'status-connected';
             }
-            const data = await response.json();
+        };
 
-            updateUI(data);
+        socket.onmessage = function(event) {
+            try {
+                const channels = JSON.parse(event.data);
+                console.log("Received data:", channels);
 
-        } catch (error) {
-            console.error('Error al obtener el estado:', error);
-            showError('No se pudo conectar con el backend. Revisa que esté en ejecución.');
-        }
+                if (Array.isArray(channels)) {
+                    channels.forEach(updateOrCreateChannelCard);
+                } else {
+                    updateOrCreateChannelCard(channels);
+                }
+            } catch (error) {
+                console.error("Error processing message:", error);
+            }
+        };
+
+        socket.onclose = function(event) {
+            console.log('WebSocket connection closed. Reconnecting in 3 seconds...', event.reason);
+            if (statusMessage) {
+                statusMessage.textContent = 'Connection lost. Reconnecting...';
+                statusMessage.className = 'status-disconnected';
+            }
+            setTimeout(connect, 3000);
+        };
+
+        socket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            socket.close();
+        };
     }
 
-    // Función para actualizar la interfaz de usuario
-    function updateUI(data) {
-        // Actualizar estado (activo/inactivo)
-        statusIndicator.classList.remove('active', 'inactive');
-        if (data.is_active) {
-            statusText.textContent = 'Activo';
-            statusIndicator.classList.add('active');
-            errorCard.style.display = 'none';
-        } else {
-            statusText.textContent = 'Inactivo';
-            statusIndicator.classList.add('inactive');
-            showError(data.error_message || 'La señal no está activa.');
+    function updateOrCreateChannelCard(channel) {
+        if (!channel || typeof channel.id === 'undefined') {
+            console.error("Invalid channel data received:", channel);
+            return;
         }
 
-        // Actualizar fecha de última actualización
-        lastUpdated.textContent = data.last_updated || 'N/A';
+        let card = document.getElementById(`channel-${channel.id}`);
 
-        // Actualizar datos de ffprobe
-        if (data.ffprobe_data) {
-            ffprobeData.textContent = JSON.stringify(data.ffprobe_data, null, 2);
-        } else {
-            ffprobeData.textContent = 'No hay datos disponibles.';
+        if (!card) {
+            card = document.createElement('div');
+            card.id = `channel-${channel.id}`;
+            channelsContainer.appendChild(card);
         }
+
+        const status = channel.status ? channel.status.toLowerCase() : 'unknown';
+
+        card.className = 'channel-card';
+        card.classList.add(`status-${status}`);
+
+        card.innerHTML = `
+            <div class="card-header">
+                <h2 class="channel-name">${channel.name || 'Unnamed Channel'}</h2>
+                <span class="status-indicator status-${status}"></span>
+            </div>
+            <div class="card-body">
+                <p><strong>Status:</strong> <span class="status-text">${(channel.status || 'UNKNOWN').toUpperCase()}</span></p>
+                <p><strong>PID:</strong> ${channel.pid || 'N/A'}</p>
+            </div>
+            <div class="card-footer">
+                <button class="restart-btn" data-id="${channel.id}">Restart</button>
+            </div>
+        `;
     }
 
-    // Función para mostrar errores
-    function showError(message) {
-        errorMessage.textContent = message;
-        errorCard.style.display = 'block';
-    }
+    channelsContainer.addEventListener('click', function(event) {
+        if (event.target && event.target.classList.contains('restart-btn')) {
+            const channelId = event.target.getAttribute('data-id');
+            console.log(`Restarting channel ${channelId}...`);
+            fetch(`/api/restart/${channelId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => console.log(data.message))
+                .catch(error => console.error('Error restarting channel:', error));
+        }
+    });
 
-    // Iniciar el polling
-    fetchStatus(); // Primera llamada inmediata
-    setInterval(fetchStatus, POLLING_INTERVAL);
+    connect();
 });

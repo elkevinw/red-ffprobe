@@ -1,4 +1,5 @@
-fastapi==0.111.0
-uvicorn==0.30.1
-python-dotenv==1.0.1 # Para cargar variables de entorno (SRT_URL, etc.)
-pydantic==2.7.4 # FastAPI lo usa internamente
+fastapi==0.104.1
+uvicorn==0.24.0.post1
+python-dotenv==1.0.0 # Para cargar variables de entorno (SRT_URL, etc.)
+pydantic==2.5.2 # FastAPI lo usa internamente
+websockets==12.0
