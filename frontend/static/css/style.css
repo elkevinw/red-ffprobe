@@ -98,39 +98,38 @@ main {
 
 /* Status Indicator Styles */
 .status-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-    transition: background-color 0.3s;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  margin-left: 10px;
+  display: inline-block;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.status-indicator.active {
+  background-color: green;
+  box-shadow: 0 0 5px green;
+}
+
+.status-indicator.listening {
+  background-color: orange;
+  box-shadow: 0 0 5px orange;
 }
 
 .channel-card.active {
     border-left-color: #34a853; /* Green */
 }
-.channel-card.active .status-indicator {
-    background-color: #34a853;
-}
 
 .channel-card.crashed {
     border-left-color: #ea4335; /* Red */
-}
-.channel-card.crashed .status-indicator {
-    background-color: #ea4335;
 }
 
 .channel-card.inactive {
     border-left-color: #9aa0a6; /* Gray */
 }
-.channel-card.inactive .status-indicator {
-    background-color: #9aa0a6;
-}
 
 .channel-card.listening {
     border-left-color: #ffc107; /* Yellow/Orange */
-}
-.channel-card.listening .status-indicator {
-    background-color: #ffc107;
 }
 
 .status-text {

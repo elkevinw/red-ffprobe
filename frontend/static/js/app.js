@@ -60,15 +60,26 @@ document.addEventListener('DOMContentLoaded', () => {
             channelsContainer.appendChild(card);
         }
 
-        const status = channel.status ? channel.status.toLowerCase() : 'unknown';
+        // Map backend status to CSS classes
+        let statusClass = '';
+        if (channel.status === 'activo') {
+            statusClass = 'active';
+        } else if (channel.status === 'listening') {
+            statusClass = 'listening';
+        } else if (channel.status) {
+            statusClass = channel.status.toLowerCase();
+        }
 
+        // Set classes for the main card for border colors and reset previous ones
         card.className = 'channel-card';
-        card.classList.add(`status-${status}`);
+        if (statusClass) {
+            card.classList.add(statusClass);
+        }
 
         card.innerHTML = `
             <div class="card-header">
                 <h2 class="channel-name">${channel.name || 'Unnamed Channel'}</h2>
-                <span class="status-indicator status-${status}"></span>
+                <div class="status-indicator ${statusClass}"></div>
             </div>
             <div class="card-body">
                 <p><strong>Status:</strong> <span class="status-text">${(channel.status || 'UNKNOWN').toUpperCase()}</span></p>
