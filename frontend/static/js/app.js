@@ -86,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p><strong>PID:</strong> ${channel.pid || 'N/A'}</p>
             </div>
             <div class="card-footer">
-                <button class="restart-btn" data-id="${channel.id}">Restart</button>
+                <button class="start-btn" data-id="${channel.id}">start</button>
+                <button class="restart-btn" data-id="${channel.id}">stop</button>
             </div>
         `;
     }
@@ -99,6 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then(response => response.json())
                 .then(data => console.log(data.message))
                 .catch(error => console.error('Error restarting channel:', error));
+        }
+        if (event.target && event.target.classList.contains('start-btn')) {
+            const channelId = event.target.getAttribute('data-id');
+            console.log(`Starting channel ${channelId}...`);
+            fetch(`/api/start/${channelId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => console.log(data.message))
+                .catch(error => console.error('Error starting channel:', error));
         }
     });
 

@@ -136,9 +136,33 @@ main {
     font-weight: bold;
 }
 
+/* Start Button */
+.start-btn {
+    display: inline-block; /* Asegura que el botón sea visible */
+    background-color: #28a745; /* Green */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    margin-right: 5px; /* Add some space between buttons */
+}
+
+.start-btn:hover {
+    background-color: #218838;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.start-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
 /* Restart Button */
 .restart-btn {
-    background-color: #4285f4; /* Google Blue */
+    background-color: #dc3545; /* Red */
     color: white;
     border: none;
     padding: 0.5rem 1rem;
@@ -149,7 +173,7 @@ main {
 }
 
 .restart-btn:hover {
-    background-color: #3367d6;
+    background-color: #c82333;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
