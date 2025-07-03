@@ -1,17 +1,40 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const channelsContainer = document.getElementById('channels-container');
+    const channelsBody = document.getElementById('channels-body');
     const statusMessage = document.getElementById('status-message');
     let socket;
+    let dataTable;
+
+    // Inicializar DataTable
+    function initializeDataTable() {
+        dataTable = $('#channels-table').DataTable({
+            responsive: true,
+            pageLength: 25,
+            order: [[0, 'asc']],
+            language: {
+                search: "Buscar:",
+                lengthMenu: "Mostrar _MENU_ canales por página",
+                zeroRecords: "No se encontraron canales",
+                info: "Mostrando _PAGE_ de _PAGES_",
+                infoEmpty: "No hay canales disponibles",
+                infoFiltered: "(filtrado de _MAX_ canales en total)",
+                paginate: {
+                    first: "Primero",
+                    last: "Último",
+                    next: "Siguiente",
+                    previous: "Anterior"
+                }
+            }
+        });
+    }
 
     function connect() {
-        // Asegura que la URL del WebSocket sea correcta para tu entorno
         const wsUrl = `ws://${window.location.host}/ws`;
         socket = new WebSocket(wsUrl);
 
         socket.onopen = function() {
             console.log("WebSocket connection established.");
             if (statusMessage) {
-                statusMessage.textContent = 'Connected to server...';
+                statusMessage.textContent = 'Conectado al servidor';
                 statusMessage.className = 'status-connected';
             }
         };
@@ -19,97 +42,111 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.onmessage = function(event) {
             try {
                 const channels = JSON.parse(event.data);
-                console.log("Received data:", channels);
+                console.log("Datos recibidos:", channels);
 
                 if (Array.isArray(channels)) {
-                    channels.forEach(updateOrCreateChannelCard);
+                    updateChannelsTable(channels);
                 } else {
-                    updateOrCreateChannelCard(channels);
+                    updateChannelsTable([channels]);
                 }
             } catch (error) {
-                console.error("Error processing message:", error);
+                console.error("Error al procesar el mensaje:", error);
             }
         };
 
         socket.onclose = function(event) {
-            console.log('WebSocket connection closed. Reconnecting in 3 seconds...', event.reason);
+            console.log('Conexión WebSocket cerrada. Reconectando en 3 segundos...', event.reason);
             if (statusMessage) {
-                statusMessage.textContent = 'Connection lost. Reconnecting...';
+                statusMessage.textContent = 'Conexión perdida. Reconectando...';
                 statusMessage.className = 'status-disconnected';
             }
             setTimeout(connect, 3000);
         };
 
         socket.onerror = function(error) {
-            console.error('WebSocket error:', error);
+            console.error('Error en WebSocket:', error);
             socket.close();
         };
     }
 
-    function updateOrCreateChannelCard(channel) {
-        if (!channel || typeof channel.id === 'undefined') {
-            console.error("Invalid channel data received:", channel);
-            return;
-        }
-
-        let card = document.getElementById(`channel-${channel.id}`);
-
-        if (!card) {
-            card = document.createElement('div');
-            card.id = `channel-${channel.id}`;
-            channelsContainer.appendChild(card);
-        }
-
-        // Map backend status to CSS classes
-        let statusClass = '';
-        if (channel.status === 'activo') {
-            statusClass = 'active';
-        } else if (channel.status === 'listening') {
-            statusClass = 'listening';
-        } else if (channel.status) {
-            statusClass = channel.status.toLowerCase();
-        }
-
-        // Set classes for the main card for border colors and reset previous ones
-        card.className = 'channel-card';
-        if (statusClass) {
-            card.classList.add(statusClass);
-        }
-
-        card.innerHTML = `
-            <div class="card-header">
-                <h2 class="channel-name">${channel.name || 'Unnamed Channel'}</h2>
-                <div class="status-indicator ${statusClass}"></div>
-            </div>
-            <div class="card-body">
-                <p><strong>Status:</strong> <span class="status-text">${(channel.status || 'UNKNOWN').toUpperCase()}</span></p>
-                <p><strong>PID:</strong> ${channel.pid || 'N/A'}</p>
-            </div>
-            <div class="card-footer">
-                <button class="start-btn" data-id="${channel.id}">start</button>
-                <button class="restart-btn" data-id="${channel.id}">stop</button>
-            </div>
-        `;
+    function updateChannelsTable(channels) {
+        // Limpiar la tabla actual
+        dataTable.clear().destroy();
+        
+        // Ordenar canales por nombre
+        channels.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        
+        // Llenar la tabla con los datos actualizados
+        const tableBody = document.getElementById('channels-body');
+        tableBody.innerHTML = ''; // Limpiar el cuerpo de la tabla
+        
+        channels.forEach(channel => {
+            if (!channel || typeof channel.id === 'undefined') {
+                console.error("Datos de canal no válidos:", channel);
+                return;
+            }
+            
+            const statusClass = getStatusClass(channel.status);
+            const statusText = (channel.status || 'UNKNOWN').toUpperCase();
+            
+            const row = document.createElement('tr');
+            row.id = `channel-${channel.id}`;
+            row.className = statusClass;
+            
+            row.innerHTML = `
+                <td>${channel.name || 'Canal sin nombre'}</td>
+                <td>
+                    <span class="status-text">
+                        <span class="status-indicator ${statusClass}"></span>
+                        ${statusText}
+                    </span>
+                </td>
+                <td>${channel.pid || 'N/A'}</td>
+                <td class="action-buttons">
+                    <button class="start-btn" data-id="${channel.id}">Iniciar</button>
+                    <button class="restart-btn" data-id="${channel.id}">Detener</button>
+                </td>
+            `;
+            
+            tableBody.appendChild(row);
+        });
+        
+        // Re-inicializar DataTable
+        initializeDataTable();
+    }
+    
+    function getStatusClass(status) {
+        if (!status) return 'inactive';
+        
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'activo') return 'active';
+        if (statusLower === 'listening') return 'listening';
+        if (statusLower.includes('error') || statusLower.includes('fail')) return 'crashed';
+        return 'inactive';
     }
 
-    channelsContainer.addEventListener('click', function(event) {
+    // Manejador de eventos para los botones
+    document.addEventListener('click', function(event) {
         if (event.target && event.target.classList.contains('restart-btn')) {
             const channelId = event.target.getAttribute('data-id');
-            console.log(`Restarting channel ${channelId}...`);
+            console.log(`Deteniendo canal ${channelId}...`);
             fetch(`/api/restart/${channelId}`, { method: 'POST' })
                 .then(response => response.json())
                 .then(data => console.log(data.message))
-                .catch(error => console.error('Error restarting channel:', error));
+                .catch(error => console.error('Error al detener el canal:', error));
         }
+        
         if (event.target && event.target.classList.contains('start-btn')) {
             const channelId = event.target.getAttribute('data-id');
-            console.log(`Starting channel ${channelId}...`);
+            console.log(`Iniciando canal ${channelId}...`);
             fetch(`/api/start/${channelId}`, { method: 'POST' })
                 .then(response => response.json())
                 .then(data => console.log(data.message))
-                .catch(error => console.error('Error starting channel:', error));
+                .catch(error => console.error('Error al iniciar el canal:', error));
         }
     });
 
+    // Inicializar la tabla y la conexión WebSocket
+    initializeDataTable();
     connect();
 });

@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Channel Monitor</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=1.1">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=1.2">
 </head>
 <body>
     <header>
@@ -12,10 +13,24 @@
     </header>
     <main>
         <div id="status-message" class="connection-status-bar">Connecting to server...</div>
-        <div id="channels-container" class="channels-grid">
-            <!-- Los canales se insertarán aquí dinámicamente -->
+        <div class="table-container">
+            <table id="channels-table" class="display" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Channel Name</th>
+                        <th>Status</th>
+                        <th>PID</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="channels-body">
+                    <!-- Los canales se insertarán aquí dinámicamente -->
+                </tbody>
+            </table>
         </div>
     </main>
-    <script src="/static/js/app.js?v=1.1"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="/static/js/app.js?v=1.2"></script>
 </body>
 </html>
