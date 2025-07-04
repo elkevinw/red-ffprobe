@@ -71,7 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateChannelsTable(channels) {
         // Limpiar la tabla actual
-        dataTable.clear().destroy();
+        if (dataTable) {
+            dataTable.clear().destroy();
+        }
         
         // Ordenar canales por nombre
         channels.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -91,13 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const row = document.createElement('tr');
             row.id = `channel-${channel.id}`;
-            row.className = statusClass;
+            row.classList.add('status-row', statusClass);
             
             row.innerHTML = `
                 <td>${channel.name || 'Canal sin nombre'}</td>
                 <td>
                     <span class="status-text">
-                        <span class="status-indicator ${statusClass}"></span>
+                        <span class="status-indicator"></span>
                         ${statusText}
                     </span>
                 </td>
@@ -107,6 +109,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="restart-btn" data-id="${channel.id}">Detener</button>
                 </td>
             `;
+            
+            // Aplicar la clase al indicador después de crear el elemento
+            const indicator = row.querySelector('.status-indicator');
+            if (indicator) {
+                indicator.classList.add(statusClass);
+            }
             
             tableBody.appendChild(row);
         });
@@ -119,9 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!status) return 'inactive';
         
         const statusLower = status.toLowerCase();
-        if (statusLower === 'activo') return 'active';
-        if (statusLower === 'listening') return 'listening';
-        if (statusLower.includes('error') || statusLower.includes('fail')) return 'crashed';
+        if (statusLower === 'activo' || statusLower === 'active') return 'active';
+        if (statusLower === 'listening' || statusLower === 'escuchando') return 'listening';
+        if (statusLower.includes('error') || statusLower.includes('fail') || statusLower.includes('caído')) return 'crashed';
         return 'inactive';
     }
 
@@ -129,20 +137,74 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', function(event) {
         if (event.target && event.target.classList.contains('restart-btn')) {
             const channelId = event.target.getAttribute('data-id');
+            const row = event.target.closest('tr');
             console.log(`Deteniendo canal ${channelId}...`);
+            
+            // Actualizar el estado visualmente de inmediato
+            const statusCell = row.querySelector('.status-text');
+            if (statusCell) {
+                statusCell.innerHTML = `
+                    <span class="status-indicator inactive"></span>
+                    DETENIENDO...
+                `;
+            }
+            
             fetch(`/api/restart/${channelId}`, { method: 'POST' })
                 .then(response => response.json())
-                .then(data => console.log(data.message))
-                .catch(error => console.error('Error al detener el canal:', error));
+                .then(data => {
+                    console.log(data.message);
+                    // Forzar una actualización del estado después de detener
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        // Enviar un mensaje para solicitar la actualización del estado
+                        socket.send(JSON.stringify({ action: 'update_status' }));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al detener el canal:', error);
+                    // Restaurar el estado anterior en caso de error
+                    if (statusCell) {
+                        statusCell.innerHTML = `
+                            <span class="status-indicator crashed"></span>
+                            ERROR
+                        `;
+                    }
+                });
         }
         
         if (event.target && event.target.classList.contains('start-btn')) {
             const channelId = event.target.getAttribute('data-id');
+            const row = event.target.closest('tr');
             console.log(`Iniciando canal ${channelId}...`);
+            
+            // Actualizar el estado visualmente de inmediato
+            const statusCell = row.querySelector('.status-text');
+            if (statusCell) {
+                statusCell.innerHTML = `
+                    <span class="status-indicator listening"></span>
+                    INICIANDO...
+                `;
+            }
+            
             fetch(`/api/start/${channelId}`, { method: 'POST' })
                 .then(response => response.json())
-                .then(data => console.log(data.message))
-                .catch(error => console.error('Error al iniciar el canal:', error));
+                .then(data => {
+                    console.log(data.message);
+                    // Forzar una actualización del estado después de iniciar
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        // Enviar un mensaje para solicitar la actualización del estado
+                        socket.send(JSON.stringify({ action: 'update_status' }));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al iniciar el canal:', error);
+                    // Restaurar el estado anterior en caso de error
+                    if (statusCell) {
+                        statusCell.innerHTML = `
+                            <span class="status-indicator crashed"></span>
+                            ERROR
+                        `;
+                    }
+                });
         }
     });
 

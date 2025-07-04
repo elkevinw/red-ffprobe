@@ -84,37 +84,90 @@ main {
 /* Status Indicator Styles */
 .status-indicator {
     display: inline-block;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     margin-right: 8px;
     vertical-align: middle;
+    box-shadow: 0 0 3px rgba(0,0,0,0.2);
+    background-color: #95a5a6; /* Color por defecto (inactive) */
 }
 
 .status-indicator.active {
-    background-color: #34a853;
-    box-shadow: 0 0 5px #34a853;
+    background-color: #2ecc71 !important;
+    box-shadow: 0 0 8px #2ecc71, 0 0 12px rgba(46, 204, 113, 0.6) !important;
 }
 
 .status-indicator.listening {
-    background-color: #ffc107;
-    box-shadow: 0 0 5px #ffc107;
+    background-color: #f39c12 !important;
+    box-shadow: 0 0 8px #f39c12, 0 0 12px rgba(243, 156, 18, 0.6) !important;
 }
 
 .status-indicator.inactive {
-    background-color: #9aa0a6;
-    box-shadow: 0 0 5px #9aa0a6;
+    background-color: #95a5a6 !important;
+    box-shadow: 0 0 8px #95a5a6, 0 0 12px rgba(149, 165, 166, 0.6) !important;
 }
 
 .status-indicator.crashed {
-    background-color: #ea4335;
-    box-shadow: 0 0 5px #ea4335;
+    background-color: #e74c3c !important;
+    box-shadow: 0 0 8px #e74c3c, 0 0 12px rgba(231, 76, 60, 0.6) !important;
+    animation: pulse 1.5s infinite;
 }
 
+tr.status-row {
+    transition: background-color 0.3s ease;
+}
+
+tr.status-row.active {
+    background-color: rgba(46, 204, 113, 0.06);
+}
+
+tr.status-row.listening {
+    background-color: transparent !important;
+}
+
+tr.status-row.inactive {
+    background-color: rgba(149, 165, 166, 0.06);
+}
+
+tr.status-row.crashed {
+    background-color: rgba(231, 76, 60, 0.06);
+}
+
+tr.status-row:hover {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Mejor contraste para el texto de estado */
 .status-text {
-    font-weight: 500;
+    font-weight: 600;
     display: inline-flex;
     align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Asegurar que las filas tengan el color de fondo correcto */
+tr.active {
+    background-color: rgba(46, 204, 113, 0.06) !important;
+}
+
+tr.listening {
+    background-color: rgba(243, 156, 18, 0.06) !important;
+}
+
+tr.inactive {
+    background-color: rgba(149, 165, 166, 0.06) !important;
+}
+
+tr.crashed {
+    background-color: rgba(231, 76, 60, 0.06) !important;
+}
+
+/* Mejorar visibilidad en hover */
+tr:hover {
+    background-color: rgba(0, 0, 0, 0.02) !important;
 }
 
 /* Button Styles */

@@ -21,7 +21,7 @@ config = load_config()
 
 # --- Gestor de Canales FFMPEG ---
 class ChannelManager:
-    def __init__(self, channel_config):
+    def __init__(self, channel_config, channel_manager):
         self.id = channel_config['id']
         self.name = channel_config['name']
         self.process = None
@@ -29,6 +29,7 @@ class ChannelManager:
         self.log_path = Path(config['log_directory']) / f"channel_{self.id}_{self.name}.log"
         self.log_file = None
         self.last_active_timestamp = None
+        self.channel_manager = channel_manager
 
         # Crear directorio de logs si no existe
         self.log_path.parent.mkdir(exist_ok=True)
@@ -133,7 +134,7 @@ class ChannelManager:
                     self.last_active_timestamp = time.time()
 
                 if status_changed:
-                    await channel_manager.broadcast_status()
+                    await self.channel_manager.broadcast_status()
 
     async def stop(self):
         if self.process and self.process.returncode is None:
@@ -147,8 +148,11 @@ class ChannelManager:
 
     async def restart(self):
         await self.stop()
+        self.status = "inactive"
         self.last_active_timestamp = None # Resetear timestamp en reinicio
         await self.start()
+        # Notificar a los clientes después de reiniciar
+        await self.channel_manager.broadcast_status()
 
     def get_state(self) -> dict:
         return {
@@ -161,7 +165,7 @@ class ChannelManager:
 class GlobalChannelManager:
     def __init__(self, channels_config):
         self.channels: Dict[int, ChannelManager] = {
-            ch_conf['id']: ChannelManager(ch_conf) for ch_conf in channels_config if ch_conf['enabled']
+            ch_conf['id']: ChannelManager(ch_conf, self) for ch_conf in channels_config if ch_conf['enabled']
         }
         self.active_websockets: List[WebSocket] = []
 
