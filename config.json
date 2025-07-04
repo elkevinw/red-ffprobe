@@ -13,7 +13,17 @@
     {
       "id": 3,
       "name": "Sextreme",
-      "enabled": false
+      "enabled": true
+    },
+    {
+      "id": 4,
+      "name": "Penthousee",
+      "enabled": true
+    },
+    {
+      "id": 5,
+      "name": "Azteca Deportes",
+      "enabled": true
     }
   ],
   "srt_base_port": 8999,
