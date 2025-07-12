@@ -105,8 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>${channel.pid || 'N/A'}</td>
                 <td class="action-buttons">
-                    <button class="start-btn" data-id="${channel.id}">Iniciar</button>
-                    <button class="restart-btn" data-id="${channel.id}">Detener</button>
+                    <button class="start-btn" data-id="${channel.id}">Reiniciar</button>
+                    <button class="restart-btn" data-id="${channel.id}">Stop</button>
                 </td>
             `;
             
@@ -140,6 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = event.target.closest('tr');
             console.log(`Deteniendo canal ${channelId}...`);
             
+            // Deshabilitar el botón para evitar múltiples clics
+            const stopButton = event.target;
+            stopButton.disabled = true;
+            stopButton.textContent = 'Deteniendo...';
+            
             // Actualizar el estado visualmente de inmediato
             const statusCell = row.querySelector('.status-text');
             if (statusCell) {
@@ -149,62 +154,105 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
             
-            fetch(`/api/restart/${channelId}`, { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data.message);
-                    // Forzar una actualización del estado después de detener
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        // Enviar un mensaje para solicitar la actualización del estado
-                        socket.send(JSON.stringify({ action: 'update_status' }));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error al detener el canal:', error);
-                    // Restaurar el estado anterior en caso de error
-                    if (statusCell) {
-                        statusCell.innerHTML = `
-                            <span class="status-indicator crashed"></span>
-                            ERROR
-                        `;
-                    }
-                });
+            fetch(`/api/stop/${channelId}`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Error al detener el canal');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Respuesta del servidor:', data);
+                showNotification(`Canal ${channelId} detenido correctamente`, 'success');
+                
+                // Forzar una actualización del estado
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ action: 'update_status' }));
+                }
+            })
+            .catch(error => {
+                console.error('Error al detener el canal:', error);
+                if (statusCell) {
+                    statusCell.innerHTML = `
+                        <span class="status-indicator crashed"></span>
+                        ERROR
+                    `;
+                }
+                showNotification(`Error al detener el canal: ${error.message}`, 'error');
+            })
+            .finally(() => {
+                // Restaurar el botón después de un tiempo
+                setTimeout(() => {
+                    stopButton.disabled = false;
+                    stopButton.textContent = 'Stop';
+                }, 2000);
+            });
         }
         
         if (event.target && event.target.classList.contains('start-btn')) {
             const channelId = event.target.getAttribute('data-id');
             const row = event.target.closest('tr');
-            console.log(`Iniciando canal ${channelId}...`);
+            console.log(`Reiniciando canal ${channelId}...`);
+            
+            // Deshabilitar el botón para evitar múltiples clics
+            const restartButton = event.target;
+            restartButton.disabled = true;
+            restartButton.textContent = 'Reiniciando...';
             
             // Actualizar el estado visualmente de inmediato
             const statusCell = row.querySelector('.status-text');
             if (statusCell) {
                 statusCell.innerHTML = `
                     <span class="status-indicator listening"></span>
-                    INICIANDO...
+                    REINICIANDO...
                 `;
             }
             
-            fetch(`/api/start/${channelId}`, { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data.message);
-                    // Forzar una actualización del estado después de iniciar
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        // Enviar un mensaje para solicitar la actualización del estado
-                        socket.send(JSON.stringify({ action: 'update_status' }));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error al iniciar el canal:', error);
-                    // Restaurar el estado anterior en caso de error
-                    if (statusCell) {
-                        statusCell.innerHTML = `
-                            <span class="status-indicator crashed"></span>
-                            ERROR
-                        `;
-                    }
-                });
+            fetch(`/api/start/${channelId}`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Error al reiniciar el canal');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data.message);
+                // Forzar una actualización del estado después de reiniciar
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ action: 'update_status' }));
+                }
+            })
+            .catch(error => {
+                console.error('Error al reiniciar el canal:', error);
+                // Mostrar mensaje de error
+                if (statusCell) {
+                    statusCell.innerHTML = `
+                        <span class="status-indicator crashed"></span>
+                        ERROR
+                    `;
+                }
+                // Mostrar notificación de error
+                showNotification(`Error al reiniciar el canal: ${error.message}`, 'error');
+            })
+            .finally(() => {
+                // Restaurar el botón
+                restartButton.disabled = false;
+                restartButton.textContent = 'Reiniciar';
+            });
         }
     });
 

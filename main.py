@@ -5,7 +5,7 @@ import os
 import time
 from pathlib import Path
 from typing import List, Dict
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,6 +25,7 @@ class ChannelManager:
         self.id = channel_config['id']
         self.name = channel_config['name']
         self.process = None
+        self.caller_process = None
         self.status = "inactive"
         self.log_path = Path(config['log_directory']) / f"channel_{self.id}_{self.name}.log"
         self.log_file = None
@@ -64,6 +65,104 @@ class ChannelManager:
         ]
         logging.info(f"Comando para canal {self.name}: {' '.join(command)}")
         return command
+
+    async def start_caller(self):
+        """Inicia el proceso caller de FFmpeg"""
+        try:
+            # Detener el caller actual si existe
+            if hasattr(self, 'caller_process') and self.caller_process and self.caller_process.returncode is None:
+                logging.info(f"Deteniendo caller existente para el canal {self.name}")
+                self.caller_process.terminate()
+                try:
+                    await asyncio.wait_for(self.caller_process.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    logging.warning(f"Forzando terminación del caller para el canal {self.name}")
+                    self.caller_process.kill()
+                    await self.caller_process.wait()
+
+            # Construir el comando FFmpeg para el caller
+            port = config['srt_base_port'] + self.id
+            video_input = "/app/tu_video.mp4"
+            
+            # Verificar si el archivo de video existe
+            if not os.path.exists(video_input):
+                logging.error(f"El archivo de video no existe en {video_input}")
+                return False
+
+            srt_url = f"srt://127.0.0.1:{port}?mode=caller&transtype=live&linger=1"
+            
+            # Comando FFmpeg simplificado y optimizado
+            command = [
+                "ffmpeg",
+                "-loglevel", "info",
+                "-re",
+                "-stream_loop", "-1",
+                "-i", video_input,
+                "-c:v", "libx264",
+                "-b:v", "3000k",
+                "-pix_fmt", "yuv420p",
+                "-f", "mpegts",
+                srt_url
+            ]
+
+            logging.info(f"Ejecutando comando caller para {self.name}: {' '.join(command)}")
+            
+            # Iniciar el proceso caller
+            self.caller_process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+
+            if not self.caller_process:
+                logging.error(f"No se pudo iniciar el proceso caller para {self.name}")
+                return False
+
+            logging.info(f"Caller iniciado para el canal {self.name} (PID: {self.caller_process.pid})")
+            
+            # Verificar si el proceso terminó inmediatamente
+            if self.caller_process.returncode is not None:
+                logging.error(f"Caller para {self.name} terminó inmediatamente con código: {self.caller_process.returncode}")
+                return False
+            
+            # Iniciar tarea para leer la salida
+            asyncio.create_task(self.read_caller_output())
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error al iniciar el caller para {self.name}: {str(e)}", exc_info=True)
+            return False
+
+    async def read_caller_output(self):
+        """Lee y registra la salida del proceso caller"""
+        if not hasattr(self, 'caller_process') or not self.caller_process:
+            return
+            
+        try:
+            while True:
+                if self.caller_process.stdout.at_eof():
+                    break
+                    
+                line = await self.caller_process.stdout.readline()
+                if not line:
+                    break
+                    
+                decoded = line.decode('utf-8', errors='ignore').strip()
+                if decoded:  # Solo registrar líneas no vacías
+                    logging.info(f"[CALLER-{self.name}] {decoded}")
+                    
+                    # Verificar si hay errores críticos
+                    if 'error' in decoded.lower() or 'failed' in decoded.lower():
+                        logging.error(f"Error en caller {self.name}: {decoded}")
+                        
+        except Exception as e:
+            logging.error(f"Error leyendo salida del caller {self.name}: {str(e)}")
+        finally:
+            # Registrar si el proceso terminó
+            if hasattr(self, 'caller_process') and self.caller_process:
+                returncode = await self.caller_process.wait()
+                logging.info(f"Caller para {self.name} terminó con código: {returncode}")
 
     async def start(self):
         if self.process and self.process.returncode is None:
@@ -137,21 +236,56 @@ class ChannelManager:
                     await self.channel_manager.broadcast_status()
 
     async def stop(self):
-        if self.process and self.process.returncode is None:
-            logging.info(f"Deteniendo proceso para el canal {self.name} (PID: {self.process.pid})")
-            self.process.terminate()
-            await self.process.wait()
-            logging.info(f"Proceso para el canal {self.name} detenido.")
-        self.status = "inactive"
-        if self.log_file and not self.log_file.closed:
-            self.log_file.close()
+        """Detiene el proceso principal y el caller si están en ejecución"""
+        try:
+            # Cerrar el archivo de log primero para asegurar que todo se escriba
+            if self.log_file and not self.log_file.closed:
+                try:
+                    self.log_file.flush()
+                    os.fsync(self.log_file.fileno())
+                    self.log_file.close()
+                except Exception as e:
+                    logging.error(f"Error al cerrar el archivo de log para {self.name}: {str(e)}")
+                finally:
+                    self.log_file = None
+
+            # Detener el proceso principal
+            if self.process and self.process.returncode is None:
+                logging.info(f"Deteniendo proceso principal para el canal {self.name} (PID: {self.process.pid})")
+                self.process.terminate()
+                try:
+                    await asyncio.wait_for(self.process.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    logging.warning(f"Forzando terminación del proceso principal para el canal {self.name}")
+                    self.process.kill()
+                    await self.process.wait()
+                logging.info(f"Proceso principal para el canal {self.name} detenido.")
+            
+            # Detener el proceso caller si existe
+            if hasattr(self, 'caller_process') and self.caller_process and self.caller_process.returncode is None:
+                logging.info(f"Deteniendo caller para el canal {self.name} (PID: {self.caller_process.pid})")
+                self.caller_process.terminate()
+                try:
+                    await asyncio.wait_for(self.caller_process.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    logging.warning(f"Forzando terminación del caller para el canal {self.name}")
+                    self.caller_process.kill()
+                    await self.caller_process.wait()
+                logging.info(f"Caller para el canal {self.name} detenido.")
+            
+            # Actualizar estado
+            self.status = "inactive"
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error al detener el canal {self.name}: {str(e)}", exc_info=True)
+            return False
 
     async def restart(self):
         await self.stop()
         self.status = "inactive"
-        self.last_active_timestamp = None # Resetear timestamp en reinicio
+        self.last_active_timestamp = None  # Reiniciar timestamp
         await self.start()
-        # Notificar a los clientes después de reiniciar
         await self.channel_manager.broadcast_status()
 
     def get_state(self) -> dict:
@@ -272,6 +406,92 @@ async def restart_channel(channel_id: int):
     
     asyncio.create_task(channel.restart())
     return {"message": f"El reinicio del canal {channel.name} ha sido iniciado."}
+
+@app.post("/api/start/{channel_id}")
+async def start_channel(channel_id: int):
+    """Iniciar o reiniciar un canal específico"""
+    try:
+        channel = channel_manager.channels.get(channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail={"error": f"Canal {channel_id} no encontrado"})
+        
+        logging.info(f"Iniciando proceso de reinicio para el canal {channel_id}")
+        
+        # Detener el canal si está en ejecución
+        if channel.process and channel.process.returncode is None:
+            logging.info(f"Deteniendo proceso existente para el canal {channel_id}")
+            await channel.stop()
+            # Esperar a que el proceso se detenga completamente
+            await asyncio.sleep(2)
+        
+        # Si hay un caller, detenerlo también
+        if hasattr(channel, 'caller_process') and channel.caller_process and channel.caller_process.returncode is None:
+            logging.info(f"Deteniendo caller para el canal {channel_id}")
+            channel.caller_process.terminate()
+            await channel.caller_process.wait()
+        
+        # Iniciar el canal
+        logging.info(f"Iniciando nuevo proceso para el canal {channel_id}")
+        await channel.start()
+        
+        # Si hay un caller configurado, iniciarlo también
+        if config.get('enable_caller', False):
+            logging.info(f"Iniciando caller para el canal {channel_id}")
+            await channel.start_caller()
+        
+        # Esperar un momento para que el proceso se estabilice
+        await asyncio.sleep(1)
+        
+        # Actualizar estado
+        await channel_manager.broadcast_status()
+        
+        logging.info(f"Canal {channel_id} reiniciado exitosamente")
+        return {"message": f"Canal {channel_id} reiniciado exitosamente", "status": "started"}
+    except Exception as e:
+        error_msg = f"Error al reiniciar el canal {channel_id}: {str(e)}"
+        logging.error(error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail={"error": error_msg}
+        )
+
+@app.post("/api/stop/{channel_id}")
+async def stop_channel(channel_id: int):
+    """Detener un canal específico"""
+    try:
+        channel = channel_manager.channels.get(channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail={"error": f"Canal {channel_id} no encontrado"})
+        
+        logging.info(f"Deteniendo canal {channel_id}...")
+        
+        # Detener el proceso principal
+        if channel.process and channel.process.returncode is None:
+            logging.info(f"Deteniendo proceso principal para el canal {channel_id}")
+            await channel.stop()
+            
+        # Detener el proceso caller si existe
+        if hasattr(channel, 'caller_process') and channel.caller_process and channel.caller_process.returncode is None:
+            logging.info(f"Deteniendo caller para el canal {channel_id}")
+            channel.caller_process.terminate()
+            try:
+                await asyncio.wait_for(channel.caller_process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                logging.warning(f"Forzando terminación del caller para el canal {channel_id}")
+                channel.caller_process.kill()
+                await channel.caller_process.wait()
+        
+        # Actualizar estado
+        channel.status = "inactive"
+        await channel_manager.broadcast_status()
+        
+        logging.info(f"Canal {channel_id} detenido exitosamente")
+        return {"message": f"Canal {channel_id} detenido exitosamente", "status": "stopped"}
+        
+    except Exception as e:
+        error_msg = f"Error al detener el canal {channel_id}: {str(e)}"
+        logging.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail={"error": error_msg})
 
 # --- Servir Frontend ---
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
