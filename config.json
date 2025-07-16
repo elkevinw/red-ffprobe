@@ -4,27 +4,32 @@
     {
       "id": 1,
       "name": "Venus",
-      "enabled": true
+      "enabled": true,
+      "srt_port": 9000
     },
     {
       "id": 2,
       "name": "PlayBoy",
-      "enabled": true
+      "enabled": true,
+      "srt_port": 9001
     },
     {
       "id": 3,
       "name": "Sextreme",
-      "enabled": true
+      "enabled": true,
+      "srt_port": 9002
     },
     {
       "id": 4,
       "name": "Penthousee",
-      "enabled": true
+      "enabled": true,
+      "srt_port": 9003
     },
     {
       "id": 5,
       "name": "Azteca Deportes",
-      "enabled": true
+      "enabled": true,
+      "srt_port": 9004
     }
   ],
   "srt_base_port": 8999,
@@ -40,6 +45,8 @@
     "ffmpeg",
     "-i",
     "{srt_url}",
+    "-loglevel",
+    "info",
     "-f",
     "null",
     "-"
