@@ -74,7 +74,7 @@ class ChannelManager:
         command = self.build_command()
         try:
             # Abrir archivo de log para stdout y stderr
-            self.log_file = open(self.log_path, 'a')
+            self.log_file = open(self.log_path, 'w')  # Cambiado de 'a' a 'w'
             logging.info(f"Iniciando proceso para canal {self.name} con comando: {' '.join(command)}")
             
             # Iniciar el proceso usando subprocess.Popen
@@ -98,9 +98,6 @@ class ChannelManager:
             logging.exception(f"Error al iniciar el proceso para el canal {self.name}: {str(e)}")
             if self.log_file:
                 self.log_file.close()
-                self.log_file = None
-            self.status = "error"
-            raise
 
     async def read_output(self):
         """Lee y registra la salida del proceso ffmpeg"""
