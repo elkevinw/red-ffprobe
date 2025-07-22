@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="action-buttons">
                     <button class="start-btn" data-id="${channel.id}">Reiniciar</button>
                     <button class="restart-btn" data-id="${channel.id}">Stop</button>
+                    
                 </td>
             `;
             

@@ -91,11 +91,16 @@ class ChannelManager:
             self.status = "listening"
             logging.info(f"Proceso para canal {self.name} iniciado con PID: {self.process.pid}")
             
+            # Notificar a los clientes WebSocket sobre el cambio de estado
+            await self.channel_manager.broadcast_status()
+            
             # Iniciar tarea para leer la salida del proceso
             asyncio.create_task(self.read_output())
             
         except Exception as e:
             logging.exception(f"Error al iniciar el proceso para el canal {self.name}: {str(e)}")
+            self.status = "error"
+            await self.channel_manager.broadcast_status()
             if self.log_file:
                 self.log_file.close()
 
@@ -201,15 +206,41 @@ class GlobalChannelManager:
     async def broadcast_status(self):
         if not self.active_websockets:
             return
+            
+        # Obtener el estado actual de todos los canales
         message = self.get_all_statuses()
-        # Prepara una tarea de envío para cada websocket activo
-        results = await asyncio.gather(*[ws.send_json(message) for ws in self.active_websockets], return_exceptions=True)
-
-        # Limpiar conexiones de websockets que fallaron (desconectados)
-        for i in range(len(self.active_websockets) - 1, -1, -1):
-            if isinstance(results[i], Exception):
-                logging.info(f"Eliminando websocket desconectado: {self.active_websockets[i].client}")
-                self.active_websockets.pop(i)
+        
+        # Crear una lista para almacenar las tareas de envío
+        tasks = []
+        
+        # Crear una tarea de envío para cada websocket activo
+        for ws in self.active_websockets:
+            try:
+                # Crear una copia del mensaje para cada websocket
+                task = asyncio.create_task(ws.send_json(message))
+                tasks.append(task)
+            except Exception as e:
+                logging.error(f"Error al enviar mensaje a WebSocket: {e}")
+                continue
+        
+        # Esperar a que todas las tareas de envío terminen
+        if tasks:
+            done, pending = await asyncio.wait(
+                tasks,
+                timeout=5.0,  # Tiempo máximo de espera
+                return_when=asyncio.ALL_COMPLETED
+            )
+            
+            # Manejar excepciones de las tareas completadas
+            for task in done:
+                try:
+                    await task  # Esto lanzará cualquier excepción que haya ocurrido
+                except Exception as e:
+                    logging.error(f"Error en tarea de envío WebSocket: {e}")
+            
+            # Cancelar cualquier tarea pendiente
+            for task in pending:
+                task.cancel()
 
     async def start_all(self):
         tasks = [channel.start() for channel in self.channels.values()]
