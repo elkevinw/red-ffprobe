@@ -2,12 +2,6 @@
   "enable_caller": true,
   "channels": [
     {
-      "id": 1,
-      "name": "Venus",
-      "enabled": true,
-      "srt_port": 9000
-    },
-    {
       "id": 2,
       "name": "PlayBoy",
       "enabled": true,

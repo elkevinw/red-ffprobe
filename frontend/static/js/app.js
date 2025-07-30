@@ -41,17 +41,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         socket.onmessage = function(event) {
             try {
-                const channels = JSON.parse(event.data);
-                console.log("Datos recibidos:", channels);
+                const updatedChannels = JSON.parse(event.data);
+                console.log("Datos recibidos:", updatedChannels);
 
-                // Guardar los canales en window.channels para acceso global
-                window.channels = Array.isArray(channels) ? [...channels] : [channels];
-
-                if (Array.isArray(channels)) {
-                    updateChannelsTable(channels);
-                } else {
-                    updateChannelsTable([channels]);
+                // Convertir a array si es un solo canal
+                const channelsArray = Array.isArray(updatedChannels) ? updatedChannels : [updatedChannels];
+                
+                // Si no hay canales en window.channels, inicializarlo como array vacío
+                if (!window.channels || !Array.isArray(window.channels)) {
+                    window.channels = [];
                 }
+
+                // Actualizar o agregar cada canal recibido
+                channelsArray.forEach(updatedChannel => {
+                    if (!updatedChannel || typeof updatedChannel.id === 'undefined') {
+                        console.error("Datos de canal no válidos:", updatedChannel);
+                        return;
+                    }
+
+                    const existingIndex = window.channels.findIndex(c => c.id === updatedChannel.id);
+                    if (existingIndex >= 0) {
+                        // Actualizar canal existente
+                        window.channels[existingIndex] = { ...window.channels[existingIndex], ...updatedChannel };
+                    } else {
+                        // Agregar nuevo canal
+                        window.channels.push(updatedChannel);
+                    }
+                });
+
+                // Actualizar la tabla con la lista completa de canales
+                updateChannelsTable([...window.channels]);
             } catch (error) {
                 console.error("Error al procesar el mensaje:", error);
             }

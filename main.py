@@ -301,6 +301,38 @@ class GlobalChannelManager:
             channel.get_state() for channel in self.channels.values()
         ]
 
+    async def start_channel(self, channel_id):
+        """Inicia un canal específico"""
+        if channel_id in self.channels:
+            channel = self.channels[channel_id]
+            if channel.process and channel.process.poll() is None:
+                logging.warning(f"El canal {channel_id} ya está en ejecución")
+                return False
+            
+            try:
+                await channel.start()
+                return True
+            except Exception as e:
+                logging.error(f"Error al iniciar el canal {channel_id}: {e}")
+                return False
+        return False
+
+    async def stop_channel(self, channel_id):
+        """Detiene un canal específico"""
+        if channel_id in self.channels:
+            channel = self.channels[channel_id]
+            if not channel.process or channel.process.poll() is not None:
+                logging.warning(f"El canal {channel_id} no está en ejecución")
+                return True
+            
+            try:
+                await channel.stop()
+                return True
+            except Exception as e:
+                logging.error(f"Error al detener el canal {channel_id}: {e}")
+                return False
+        return False
+
 # --- Almacén de Estado Global ---
 channel_manager = GlobalChannelManager(config.get("channels", []))
 
@@ -372,6 +404,109 @@ async def stop_channel(channel_id: int):
         return {"status": "success", "message": f"Canal {channel_id} detenido"}
     except Exception as e:
         logging.error(f"Error al detener el canal {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Funciones de utilidad ---
+def save_channels_to_config():
+    """Guarda la configuración actual de los canales en el archivo config.json"""
+    with open("config.json", "r") as f:
+        current_config = json.load(f)
+    
+    # Actualizar la lista de canales en la configuración
+    current_config["channels"] = [
+        {"id": ch.id, "name": ch.name, "enabled": True, "srt_port": ch.id + config['srt_base_port'] - 1}
+        for ch in channel_manager.channels.values()
+    ]
+    
+    # Mantener otros campos de configuración
+    with open("config.json", "w") as f:
+        json.dump(current_config, f, indent=2)
+
+@app.put("/api/channels/{channel_id}")
+async def update_channel(channel_id: int, channel_data: dict):
+    global config  # Mover la declaración global al inicio de la función
+    try:
+        # Verificar si el canal existe
+        channel = channel_manager.channels.get(channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail=f"Canal con ID {channel_id} no encontrado")
+        
+        # Validar los datos de entrada
+        mode = channel_data.get('mode', 'listener')
+        if mode not in ['listener', 'caller']:
+            raise HTTPException(status_code=400, detail="El modo debe ser 'listener' o 'caller'")
+        
+        # Validar campos requeridos para el modo caller
+        if mode == 'caller':
+            if 'remote_ip' not in channel_data or 'remote_port' not in channel_data:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Se requieren 'remote_ip' y 'remote_port' para el modo caller"
+                )
+        
+        # Actualizar la configuración del canal
+        channel.name = channel_data.get('name', channel.name)
+        
+        # Actualizar el archivo de configuración
+        with open("config.json", "r") as f:
+            config_data = json.load(f)
+        
+        # Buscar y actualizar el canal en la configuración
+        channel_updated = False
+        for ch in config_data.get('channels', []):
+            if ch['id'] == channel_id:
+                ch.update({
+                    'name': channel_data.get('name', ch.get('name', '')),
+                    'mode': mode
+                })
+                
+                # Actualizar o eliminar campos según el modo
+                if mode == 'caller':
+                    ch['remote_ip'] = channel_data['remote_ip']
+                    ch['remote_port'] = channel_data['remote_port']
+                else:
+                    ch.pop('remote_ip', None)
+                    ch.pop('remote_port', None)
+                
+                channel_updated = True
+                break
+        
+        if not channel_updated:
+            # Si no existe, agregar el canal a la configuración
+            new_channel = {
+                'id': channel_id,
+                'name': channel_data.get('name', f'Canal {channel_id}'),
+                'enabled': True,
+                'mode': mode,
+                'srt_port': config['srt_base_port'] + channel_id - 1
+            }
+            if mode == 'caller':
+                new_channel.update({
+                    'remote_ip': channel_data['remote_ip'],
+                    'remote_port': channel_data['remote_port']
+                })
+            config_data['channels'].append(new_channel)
+        
+        # Guardar la configuración actualizada
+        with open("config.json", "w") as f:
+            json.dump(config_data, f, indent=2)
+        
+        # Recargar la configuración en el ChannelManager
+        config = load_config()
+        
+        # Reiniciar el canal para aplicar los cambios
+        await channel_manager.stop_channel(channel_id)
+        await channel_manager.start_channel(channel_id)
+        
+        return {
+            "status": "success", 
+            "message": f"Canal {channel_id} actualizado correctamente"
+        }
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Formato de datos inválido")
+    except Exception as e:
+        logging.error(f"Error al actualizar el canal {channel_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Servir Frontend ---
