@@ -36,9 +36,26 @@ class ChannelManager:
         self.log_path.parent.mkdir(exist_ok=True)
 
     def build_command(self) -> List[str]:
-        # Construye la URL SRT
+        # Get channel config
+        channel_config = next((ch for ch in self.channel_manager.config.get("channels", []) 
+                            if ch['id'] == self.id), {})
+        
+        # Get mode and validate
+        mode = channel_config.get('mode', 'listener')
         port = config['srt_base_port'] + self.id
-        srt_url = f"srt://0.0.0.0:{port}{config['srt_options'].format(srt_mode=config['srt_mode'])}"
+        
+        # Build SRT URL based on mode
+        if mode == 'caller':
+            # Validate required fields for Caller mode
+            remote_ip = channel_config.get('remote_ip')
+            remote_port = channel_config.get('remote_port')
+            
+            if not remote_ip or not remote_port:
+                raise ValueError(f"Channel {self.name}: remote_ip and remote_port are required for Caller mode")
+                
+            srt_url = f"srt://{remote_ip}:{remote_port}?mode=caller"
+        else:  # Default to Listener mode
+            srt_url = f"srt://0.0.0.0:{port}?mode=listener"
 
         # Construye la URL Multicast
         multicast_ip_parts = config['multicast_base_ip'].split('.')
@@ -52,7 +69,7 @@ class ChannelManager:
         # Calcula el Service ID
         service_id = config['service_id_base'] + self.id
 
-        # Reemplaza placeholders en la plantilla del comando
+        # Reemplaza placeholders en la plantilla del comando 
         command_template = config['ffmpeg_command_template']
         command = [
             str(arg).format(
@@ -63,7 +80,7 @@ class ChannelManager:
             )
             for arg in command_template
         ]
-        logging.info(f"Comando para canal {self.name}: {' '.join(command)}")
+        logging.info(f"Comando para canal {self.name} (modo {mode}): {' '.join(command)}")
         return command
 
     async def start(self):
@@ -195,6 +212,7 @@ class GlobalChannelManager:
             ch_conf['id']: ChannelManager(ch_conf, self) for ch_conf in channels_config if ch_conf['enabled']
         }
         self.active_websockets: List[WebSocket] = []
+        self.config = config  # Añadir referencia a la configuración global
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()

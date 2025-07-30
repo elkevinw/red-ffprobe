@@ -8,5 +8,5 @@ ffmpeg version 2025-05-19-git-c55d65ac0a-essentials_build-www.gyan.dev Copyright
   libavfilter    11.  0.100 / 11.  0.100
   libswscale      9.  0.100 /  9.  0.100
   libswresample   6.  0.100 /  6.  0.100
-Error opening input file srt://0.0.0.0:9002?mode=listener&transtype=live&linger=1&fec=1&pkt_size=1316&rcvlatency=5000000&sndlatency=5000000&latency=5000000&connect_timeout=30000&sndbuf=10000000.
+Error opening input file srt://0.0.0.0:9002?mode=listener.
 Exiting normally, received signal 2.

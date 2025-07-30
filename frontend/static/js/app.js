@@ -44,6 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const channels = JSON.parse(event.data);
                 console.log("Datos recibidos:", channels);
 
+                // Guardar los canales en window.channels para acceso global
+                window.channels = Array.isArray(channels) ? [...channels] : [channels];
+
                 if (Array.isArray(channels)) {
                     updateChannelsTable(channels);
                 } else {
@@ -88,8 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            const statusClass = getStatusClass(channel.status);
-            const statusText = (channel.status || 'UNKNOWN').toUpperCase();
+            const isActive = channel.status && (channel.status.toLowerCase() === 'active' || channel.status.toLowerCase() === 'activo');
+            const statusClass = isActive ? 'active' : getStatusClass(channel.status);
+            const statusText = isActive ? 'Activo' : (channel.status || 'UNKNOWN').toUpperCase();
             
             const row = document.createElement('tr');
             row.id = `channel-${channel.id}`;
@@ -99,23 +103,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${channel.name || 'Canal sin nombre'}</td>
                 <td>
                     <span class="status-text">
-                        <span class="status-indicator"></span>
+                        <span class="status-indicator ${statusClass}"></span>
                         ${statusText}
                     </span>
                 </td>
                 <td>${channel.pid || 'N/A'}</td>
                 <td class="action-buttons">
-                    <button class="start-btn" data-id="${channel.id}">Reiniciar</button>
-                    <button class="restart-btn" data-id="${channel.id}">Stop</button>
-                    
+                    <button class="start-btn ${isActive ? 'active' : ''}" data-id="${channel.id}">
+                        ${isActive ? 'Activo' : 'Reiniciar'}
+                    </button>
+                    <button class="restart-btn ${isActive ? 'active' : ''}" data-id="${channel.id}">
+                        ${isActive ? 'Activo' : 'Stop'}
+                    </button>
+                    <button class="configure-btn" data-id="${channel.id}">
+                        Configurar
+                    </button>
                 </td>
             `;
-            
-            // Aplicar la clase al indicador después de crear el elemento
-            const indicator = row.querySelector('.status-indicator');
-            if (indicator) {
-                indicator.classList.add(statusClass);
-            }
             
             tableBody.appendChild(row);
         });
@@ -134,130 +138,168 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'inactive';
     }
 
+    function updateChannelStatus(channelId, status) {
+        const row = document.getElementById(`channel-${channelId}`);
+        if (!row) return;
+
+        // Actualizar el texto del estado
+        const statusCell = row.querySelector('.status-text');
+        if (statusCell) {
+            const statusText = status === "active" ? "Activo" : status.toUpperCase();
+            statusCell.innerHTML = `
+                <span class="status-indicator"></span>
+                ${statusText}
+            `;
+        }
+
+        // Actualizar la clase del estado
+        const statusIndicator = row.querySelector('.status-indicator');
+        if (statusIndicator) {
+            statusIndicator.className = "status-indicator";
+            statusIndicator.classList.add(status === "active" ? "active" : getStatusClass(status));
+        }
+
+        // Actualizar el botón
+        const buttons = row.querySelectorAll('.action-buttons button');
+        buttons.forEach(button => {
+            // Eliminar clases anteriores
+            button.classList.remove('inactive', 'listening', 'error', 'crashed');
+            
+            // Agregar clase y texto según el estado
+            if (status === "active") {
+                button.classList.add('active');
+                button.textContent = "Activo";
+            } else {
+                button.classList.add(getStatusClass(status));
+                button.textContent = status === "listening" ? "Escuchando" : status === "error" ? "Error" : "Stop";
+            }
+        });
+    }
+
     // Manejador de eventos para los botones
     document.addEventListener('click', function(event) {
         if (event.target && event.target.classList.contains('restart-btn')) {
             const channelId = event.target.getAttribute('data-id');
             const row = event.target.closest('tr');
-            console.log(`Deteniendo canal ${channelId}...`);
-            
-            // Deshabilitar el botón para evitar múltiples clics
-            const stopButton = event.target;
-            stopButton.disabled = true;
-            stopButton.textContent = 'Deteniendo...';
-            
-            // Actualizar el estado visualmente de inmediato
-            const statusCell = row.querySelector('.status-text');
-            if (statusCell) {
-                statusCell.innerHTML = `
-                    <span class="status-indicator inactive"></span>
-                    DETENIENDO...
-                `;
-            }
-            
-            fetch(`/api/stop/${channelId}`, { 
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.error || 'Error al detener el canal');
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Respuesta del servidor:', data);
-                showNotification(`Canal ${channelId} detenido correctamente`, 'success');
-                
-                // Forzar una actualización del estado
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ action: 'update_status' }));
-                }
-            })
-            .catch(error => {
-                console.error('Error al detener el canal:', error);
-                if (statusCell) {
-                    statusCell.innerHTML = `
-                        <span class="status-indicator crashed"></span>
-                        ERROR
-                    `;
-                }
-                showNotification(`Error al detener el canal: ${error.message}`, 'error');
-            })
-            .finally(() => {
-                // Restaurar el botón después de un tiempo
-                setTimeout(() => {
-                    stopButton.disabled = false;
-                    stopButton.textContent = 'Stop';
-                }, 2000);
-            });
-        }
-        
-        if (event.target && event.target.classList.contains('start-btn')) {
-            const channelId = event.target.getAttribute('data-id');
-            const row = event.target.closest('tr');
             console.log(`Reiniciando canal ${channelId}...`);
             
-            // Deshabilitar el botón para evitar múltiples clics
-            const restartButton = event.target;
-            restartButton.disabled = true;
-            restartButton.textContent = 'Reiniciando...';
+            // Mostrar indicador de carga
+            const statusCell = row.querySelector('.status-cell');
+            statusCell.innerHTML = '<span class="status-indicator loading"></span> Reiniciando...';
             
-            // Actualizar el estado visualmente de inmediato
-            const statusCell = row.querySelector('.status-text');
-            if (statusCell) {
-                statusCell.innerHTML = `
-                    <span class="status-indicator listening"></span>
-                    REINICIANDO...
-                `;
+            // Enviar solicitud para reiniciar el canal
+            fetch(`/api/channels/${channelId}/restart`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(`Canal ${channelId} reiniciado:`, data);
+                    // La actualización vendrá a través de WebSocket
+                })
+                .catch(error => {
+                    console.error(`Error al reiniciar el canal ${channelId}:`, error);
+                    statusCell.innerHTML = '<span class="status-indicator error"></span> Error';
+                });
+        } else if (event.target && event.target.classList.contains('configure-btn')) {
+            const channelId = event.target.getAttribute('data-id');
+            const channel = window.channels.find(c => c.id === parseInt(channelId));
+            
+            if (channel) {
+                // Llenar el formulario con los datos del canal
+                document.getElementById('configChannelId').value = channel.id;
+                document.getElementById('channelName').value = channel.name || '';
+                
+                // Establecer el modo
+                const mode = channel.mode || 'listener';
+                document.querySelector(`input[name="mode"][value="${mode}"]`).checked = true;
+                
+                // Mostrar/ocultar configuración remota según el modo
+                const remoteConfig = document.getElementById('remoteConfig');
+                remoteConfig.classList.toggle('hidden', mode !== 'caller');
+                
+                // Si hay configuración remota, llenar los campos
+                if (mode === 'caller' && channel.remote_ip && channel.remote_port) {
+                    document.getElementById('remoteIp').value = channel.remote_ip;
+                    document.getElementById('remotePort').value = channel.remote_port;
+                }
+                
+                // Mostrar el modal
+                document.getElementById('channelConfigModal').style.display = 'block';
             }
-            
-            fetch(`/api/start/${channelId}`, { 
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.error || 'Error al reiniciar el canal');
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log(data.message);
-                // Forzar una actualización del estado después de reiniciar
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ action: 'update_status' }));
-                }
-            })
-            .catch(error => {
-                console.error('Error al reiniciar el canal:', error);
-                // Mostrar mensaje de error
-                if (statusCell) {
-                    statusCell.innerHTML = `
-                        <span class="status-indicator crashed"></span>
-                        ERROR
-                    `;
-                }
-                // Mostrar notificación de error
-                showNotification(`Error al reiniciar el canal: ${error.message}`, 'error');
-            })
-            .finally(() => {
-                // Restaurar el botón
-                restartButton.disabled = false;
-                restartButton.textContent = 'Reiniciar';
-            });
         }
     });
 
-    // Inicializar la tabla y la conexión WebSocket
+    // Manejar cambio de modo
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const remoteConfig = document.getElementById('remoteConfig');
+            remoteConfig.classList.toggle('hidden', this.value !== 'caller');
+        });
+    });
+
+    // Manejar envío del formulario
+    document.getElementById('channelConfigForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const channelId = document.getElementById('configChannelId').value;
+        const channelName = document.getElementById('channelName').value;
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        
+        const configData = {
+            name: channelName,
+            mode: mode
+        };
+        
+        // Agregar configuración remota solo si el modo es caller
+        if (mode === 'caller') {
+            configData.remote_ip = document.getElementById('remoteIp').value;
+            configData.remote_port = parseInt(document.getElementById('remotePort').value);
+            
+            // Validar campos requeridos
+            if (!configData.remote_ip || !configData.remote_port) {
+                alert('Por favor complete la dirección IP y puerto remoto para el modo Caller');
+                return;
+            }
+        }
+        
+        // Enviar la configuración al servidor
+        fetch(`/api/channels/${channelId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(configData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Configuración guardada:', data);
+            // Cerrar el modal
+            document.getElementById('channelConfigModal').style.display = 'none';
+            // La actualización de la tabla vendrá a través de WebSocket
+        })
+        .catch(error => {
+            console.error('Error al guardar la configuración:', error);
+            alert('Error al guardar la configuración: ' + error.message);
+        });
+    });
+
+    // Cerrar el modal al hacer clic en la X
+    document.querySelector('.close').addEventListener('click', function() {
+        document.getElementById('channelConfigModal').style.display = 'none';
+    });
+
+    // Cerrar el modal al hacer clic en Cancelar
+    document.getElementById('cancelConfig').addEventListener('click', function() {
+        document.getElementById('channelConfigModal').style.display = 'none';
+    });
+
+    // Cerrar el modal al hacer clic fuera del contenido
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('channelConfigModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Inicializar DataTable y conectar WebSocket
     initializeDataTable();
     connect();
 });
