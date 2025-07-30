@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${isActive ? 'Activo' : 'Stop'}
                     </button>
                     <button class="configure-btn" data-id="${channel.id}">
-                        Configurar
+                        Mode
                     </button>
                 </td>
             `;
