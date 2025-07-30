@@ -1,54 +1,61 @@
 {
-  "enable_caller": true,
-  "channels": [
-    {
-      "id": 1,
-      "name": "Venus",
-      "enabled": true,
-      "srt_port": 9000
-    },
-    {
-      "id": 2,
-      "name": "PlayBoy",
-      "enabled": true,
-      "srt_port": 9001
-    },
-    {
-      "id": 3,
-      "name": "Sextreme",
-      "enabled": true,
-      "srt_port": 9002
-    },
-    {
-      "id": 4,
-      "name": "Penthousee",
-      "enabled": true,
-      "srt_port": 9003
-    },
-    {
-      "id": 5,
-      "name": "Azteca Deportes",
-      "enabled": true,
-      "srt_port": 9004
-    }
-  ],
-  "srt_base_port": 8999,
-  "srt_mode": "listener",
-  "srt_options": "?mode={srt_mode}&transtype=live&linger=1&fec=1&pkt_size=1316&rcvlatency=5000000&sndlatency=5000000&latency=5000000&connect_timeout=30000&sndbuf=10000000",
-  "multicast_base_ip": "225.226.10.2",
-  "multicast_base_port": 2000,
-  "multicast_interface": "127.0.0.1",
-  "multicast_options": "pkt_size=1316&buffer_size=65535&ttl=60",
-  "service_id_base": 100,
-  "log_directory": "./logs",
-  "ffmpeg_command_template": [
-    "ffmpeg",
-    "-i",
-    "{srt_url}",
-    "-loglevel",
-    "info",
-    "-f",
-    "null",
-    "-"
-  ]
+    "enable_caller": true,
+    "channels": [
+        {
+            "id": 1,
+            "name": "Venus",
+            "enabled": true,
+            "srt_port": 9000
+        },
+        {
+            "id": 2,
+            "name": "PlayBoy",
+            "enabled": true,
+            "srt_port": 9001
+        },
+        {
+            "id": 3,
+            "name": "Sextreme",
+            "enabled": true,
+            "srt_port": 9002
+        },
+        {
+            "id": 4,
+            "name": "Penthousee",
+            "enabled": true,
+            "srt_port": 9003
+        },
+        {
+            "id": 5,
+            "name": "Azteca Deportes",
+            "enabled": true,
+            "srt_port": 9004
+        },
+        {
+            "id": 6,
+            "name": "pruebonga",
+            "mode": "listener",
+            "enabled": true,
+            "local_port": 9006
+        }
+    ],
+    "srt_base_port": 8999,
+    "srt_mode": "listener",
+    "srt_options": "?mode={srt_mode}&transtype=live&linger=1&fec=1&pkt_size=1316&rcvlatency=5000000&sndlatency=5000000&latency=5000000&connect_timeout=30000&sndbuf=10000000",
+    "multicast_base_ip": "225.226.10.2",
+    "multicast_base_port": 2000,
+    "multicast_interface": "127.0.0.1",
+    "multicast_options": "pkt_size=1316&buffer_size=65535&ttl=60",
+    "service_id_base": 100,
+    "log_directory": "./logs",
+    "ffmpeg_command_template": [
+        "ffmpeg",
+        "-i",
+        "{srt_url}",
+        "-loglevel",
+        "info",
+        "-f",
+        "null",
+        "-"
+    ]
 }

@@ -6,7 +6,7 @@ import subprocess
 import time
 from pathlib import Path
 from typing import List, Dict
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,14 +25,16 @@ class ChannelManager:
     def __init__(self, channel_config, channel_manager):
         self.id = channel_config['id']
         self.name = channel_config['name']
+        self.mode = channel_config.get('mode', 'listener')
+        self.remote_ip = channel_config.get('remote_ip')
+        self.remote_port = channel_config.get('remote_port')
+        self.local_port = channel_config.get('local_port', config['srt_base_port'] + channel_config['id'])
         self.process = None
         self.status = "inactive"
         self.log_path = Path(config['log_directory']) / f"channel_{self.id}_{self.name}.log"
         self.log_file = None
         self.last_active_timestamp = None
         self.channel_manager = channel_manager
-
-        # Crear directorio de logs si no existe
         self.log_path.parent.mkdir(exist_ok=True)
 
     def build_command(self) -> List[str]:
@@ -301,6 +303,67 @@ class GlobalChannelManager:
             channel.get_state() for channel in self.channels.values()
         ]
 
+    def get_next_channel_id(self):
+        if not self.channels:
+            return 1
+        return max(channel.id for channel in self.channels.values()) + 1
+        
+    async def add_channel(self, channel_data: dict):
+        # Generate new channel ID
+        new_id = self.get_next_channel_id()
+        
+        # Prepare channel config
+        channel_config = {
+            'id': new_id,
+            'name': channel_data['name'],
+            'mode': channel_data['mode'],
+            'enabled': True,
+            'local_port': int(channel_data['local_port'])
+        }
+        
+        # Add remote config if in caller mode
+        if channel_data['mode'] == 'caller':
+            channel_config.update({
+                'remote_ip': channel_data['remote_ip'],
+                'remote_port': int(channel_data['remote_port'])
+            })
+        
+        # Add to config file
+        self.save_channel_to_config(channel_config)
+        
+        # Create and start channel
+        channel = ChannelManager(channel_config, self)
+        self.channels[new_id] = channel
+        
+        # Start the channel
+        await channel.start()
+        
+        # Broadcast the update to all connected clients
+        await self.broadcast_status()
+        
+        return new_id
+        
+    def save_channel_to_config(self, new_channel):
+        # Load current config
+        with open("config.json", "r") as f:
+            config_data = json.load(f)
+        
+        # Add new channel
+        if 'channels' not in config_data:
+            config_data['channels'] = []
+            
+        # Remove if channel with same ID exists (shouldn't happen with auto-increment)
+        config_data['channels'] = [ch for ch in config_data['channels'] if ch['id'] != new_channel['id']]
+        config_data['channels'].append(new_channel)
+        
+        # Save back to file
+        with open("config.json", "w") as f:
+            json.dump(config_data, f, indent=4)
+        
+        # Update global config
+        global config
+        config = config_data
+
 # --- Almacén de Estado Global ---
 channel_manager = GlobalChannelManager(config.get("channels", []))
 
@@ -373,6 +436,41 @@ async def stop_channel(channel_id: int):
     except Exception as e:
         logging.error(f"Error al detener el canal {channel_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/channels")
+async def create_channel(request: Request):
+    try:
+        data = await request.json()
+        
+        # Validate required fields
+        required_fields = ['name', 'mode', 'local_port']
+        for field in required_fields:
+            if field not in data:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Validate mode
+        if data['mode'] not in ['listener', 'caller']:
+            raise HTTPException(status_code=400, detail="Invalid mode. Must be 'listener' or 'caller'")
+            
+        # Validate remote config for caller mode
+        if data['mode'] == 'caller':
+            if 'remote_ip' not in data or 'remote_port' not in data:
+                raise HTTPException(status_code=400, detail="remote_ip and remote_port are required for Caller mode")
+        
+        # Add the new channel
+        try:
+            channel_id = await channel_manager.add_channel(data)
+            return {"success": True, "channel_id": channel_id}
+            
+        except Exception as e:
+            logging.exception("Error adding channel")
+            raise HTTPException(status_code=500, detail=f"Error adding channel: {str(e)}")
+            
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON data")
+    except Exception as e:
+        logging.exception("Unexpected error in create_channel")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # --- Servir Frontend ---
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")

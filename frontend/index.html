@@ -13,6 +13,12 @@
     </header>
     <main>
         <div id="status-message" class="connection-status-bar">Connecting to server...</div>
+        <div class="table-header">
+            <h2>Canales SRT</h2>
+            <button id="addChannelBtn" class="btn btn-primary">
+                <span>+</span> Añadir Canal
+            </button>
+        </div>
         <div class="table-container">
             <table id="channels-table" class="display" style="width:100%">
                 <thead>
@@ -66,6 +72,49 @@
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Guardar</button>
                     <button type="button" class="btn btn-secondary" id="cancelConfig">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para añadir nuevo canal -->
+    <div id="addChannelModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeAddChannel">&times;</span>
+            <h2>Añadir Nuevo Canal</h2>
+            <form id="addChannelForm">
+                <div class="form-group">
+                    <label for="newChannelName">Nombre del Canal:</label>
+                    <input type="text" id="newChannelName" required>
+                </div>
+                <div class="form-group">
+                    <label>Modo de Operación:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="newMode" value="listener" checked> Listener (Espera conexiones)
+                        </label>
+                        <label>
+                            <input type="radio" name="newMode" value="caller"> Caller (Conecta a remoto)
+                        </label>
+                    </div>
+                </div>
+                <div id="newRemoteConfig" class="hidden">
+                    <div class="form-group">
+                        <label for="newRemoteIp">IP Remota:</label>
+                        <input type="text" id="newRemoteIp" placeholder="Ej: 192.168.1.100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newRemotePort">Puerto Remoto:</label>
+                        <input type="number" id="newRemotePort" min="1" max="65535" placeholder="Ej: 9000" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="localPort">Puerto Local:</label>
+                    <input type="number" id="localPort" min="1" max="65535" placeholder="Ej: 9000" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="button" class="btn btn-secondary" id="cancelAddChannel">Cancelar</button>
                 </div>
             </form>
         </div>

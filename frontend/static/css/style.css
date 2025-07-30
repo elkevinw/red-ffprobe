@@ -81,6 +81,48 @@ main {
     background-color: #f8f9fa;
 }
 
+/* Table Header with Add Button */
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.table-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #333;
+}
+
+#addChannelBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #4a6baf;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+#addChannelBtn:hover {
+    background-color: #3a5a9f;
+    transform: translateY(-1px);
+}
+
+#addChannelBtn:active {
+    transform: translateY(0);
+}
+
+#addChannelBtn span {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
 /* Status Indicator Styles */
 .status-indicator {
     display: inline-block;

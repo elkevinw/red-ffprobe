@@ -300,6 +300,90 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Add event listener for the new channel button
+    const addChannelBtn = document.getElementById('addChannelBtn');
+    const addChannelModal = document.getElementById('addChannelModal');
+    const addChannelForm = document.getElementById('addChannelForm');
+    const closeAddChannelBtn = document.getElementById('closeAddChannel');
+    const cancelAddChannelBtn = document.getElementById('cancelAddChannel');
+    const newModeRadios = document.querySelectorAll('input[name="newMode"]');
+    const newRemoteConfig = document.getElementById('newRemoteConfig');
+
+    // Show add channel modal
+    addChannelBtn.addEventListener('click', () => {
+        addChannelForm.reset();
+        addChannelModal.style.display = 'block';
+        // Reset remote config visibility based on default selected mode
+        newRemoteConfig.classList.add('hidden');
+        document.getElementById('newRemoteIp').required = false;
+        document.getElementById('newRemotePort').required = false;
+    });
+
+    // Close add channel modal
+    closeAddChannelBtn.addEventListener('click', () => {
+        addChannelModal.style.display = 'none';
+    });
+
+    cancelAddChannelBtn.addEventListener('click', () => {
+        addChannelModal.style.display = 'none';
+    });
+
+    // Toggle remote config visibility based on mode selection
+    newModeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const isCaller = this.value === 'caller';
+            newRemoteConfig.classList.toggle('hidden', !isCaller);
+            document.getElementById('newRemoteIp').required = isCaller;
+            document.getElementById('newRemotePort').required = isCaller;
+        });
+    });
+
+    // Handle form submission for new channel
+    addChannelForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const channelData = {
+            name: document.getElementById('newChannelName').value,
+            mode: document.querySelector('input[name="newMode"]:checked').value,
+            local_port: parseInt(document.getElementById('localPort').value)
+        };
+        
+        if (channelData.mode === 'caller') {
+            channelData.remote_ip = document.getElementById('newRemoteIp').value;
+            channelData.remote_port = parseInt(document.getElementById('newRemotePort').value);
+        }
+        
+        // Send request to create new channel
+        fetch('/api/channels', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(channelData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close the modal
+                addChannelModal.style.display = 'none';
+                // The WebSocket will handle the update of the channels list
+            } else {
+                alert('Error al crear el canal: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al crear el canal: ' + error.message);
+        });
+    });
+
+    // Close modal when clicking outside of it
+    window.addEventListener('click', function(event) {
+        if (event.target === addChannelModal) {
+            addChannelModal.style.display = 'none';
+        }
+    });
+
     // Inicializar DataTable y conectar WebSocket
     initializeDataTable();
     connect();
