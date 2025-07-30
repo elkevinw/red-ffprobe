@@ -340,6 +340,19 @@ tr:hover {
     font-family: monospace;
 }
 
+/* Channel Name Display */
+.channel-name-display {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
 /* Modal Styles */
 .modal {
     display: none;

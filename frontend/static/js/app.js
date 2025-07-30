@@ -205,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (channel) {
                 // Llenar el formulario con los datos del canal
                 document.getElementById('configChannelId').value = channel.id;
+                document.getElementById('channelNameDisplay').textContent = channel.name || '';
                 document.getElementById('channelName').value = channel.name || '';
                 
                 // Establecer el modo
