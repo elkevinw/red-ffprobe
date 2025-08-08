@@ -30,6 +30,15 @@
             "name": "Azteca Deportes",
             "enabled": true,
             "srt_port": 9004
+        },
+        {
+            "id": 6,
+            "name": "prueba",
+            "mode": "caller",
+            "enabled": true,
+            "local_port": 9005,
+            "remote_ip": "192.168.1.28",
+            "remote_port": 9005
         }
     ],
     "srt_base_port": 8999,

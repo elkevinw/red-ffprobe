@@ -111,9 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>${channel.pid || 'N/A'}</td>
                 <td class="action-buttons">
-                    <button class="start-btn ${isActive ? 'active' : ''}" data-id="${channel.id}">
-                        ${isActive ? 'Activo' : 'Iniciar'}
-                    </button>
                     <button class="stop-btn ${!isActive ? 'inactive' : ''}" data-id="${channel.id}">
                         Detener
                     </button>
@@ -124,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Mode
                     </button>
                     <button class="delete-btn" data-id="${channel.id}" data-name="${channel.name}">
-                        🗑️ Eliminar
+                        Eliminar
                     </button>
                 </td>
             `;
@@ -150,36 +147,59 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.getElementById(`channel-${channelId}`);
         if (!row) return;
 
-        // Actualizar el texto del estado
+        // Get the channel to check its mode
+        const channel = window.channels.find(c => c.id === channelId);
+        const isListenerMode = channel && channel.mode === 'listener';
+
+        // Update status text
         const statusCell = row.querySelector('.status-text');
         if (statusCell) {
-            const statusText = status === "active" ? "Activo" : status.toUpperCase();
+            let statusText = "";
+            if (status === "active") {
+                statusText = isListenerMode ? "Escuchando" : "Activo";
+            } else {
+                statusText = status.toUpperCase();
+            }
             statusCell.innerHTML = `
                 <span class="status-indicator"></span>
                 ${statusText}
+                ${isListenerMode && status === 'active' ? 
+                    '<span class="listening-indicator" title="Modo Listener Activo">🔊</span>' : ''}
             `;
         }
 
-        // Actualizar la clase del estado
+        // Update status indicator class
         const statusIndicator = row.querySelector('.status-indicator');
         if (statusIndicator) {
             statusIndicator.className = "status-indicator";
-            statusIndicator.classList.add(status === "active" ? "active" : getStatusClass(status));
+            const statusClass = (isListenerMode && status === 'active') ? 'listening' : 
+                              (status === 'active' ? 'active' : getStatusClass(status));
+            statusIndicator.classList.add(statusClass);
         }
 
-        // Actualizar el botón
+        // Update buttons
         const buttons = row.querySelectorAll('.action-buttons button');
         buttons.forEach(button => {
-            // Eliminar clases anteriores
-            button.classList.remove('inactive', 'listening', 'error', 'crashed');
+            // Remove all status classes
+            button.classList.remove('active', 'listening', 'inactive', 'error', 'crashed');
             
-            // Agregar clase y texto según el estado
-            if (status === "active") {
-                button.classList.add('active');
-                button.textContent = "Activo";
+            // Handle stop button specifically
+            if (button.classList.contains('stop-btn')) {
+                if (status === "active") {
+                    button.textContent = isListenerMode ? "Detener" : "Detener";
+                    button.classList.add('stop-btn');
+                } else {
+                    button.textContent = "Detener";
+                    button.classList.add('inactive');
+                }
+            } 
+            // Handle other buttons
+            else if (status === "active") {
+                button.classList.add(isListenerMode ? 'listening' : 'active');
+                button.textContent = isListenerMode ? "Escuchando" : "Activo";
             } else {
                 button.classList.add(getStatusClass(status));
-                button.textContent = status === "listening" ? "Escuchando" : status === "error" ? "Error" : "Stop";
+                button.textContent = status === "error" ? "Error" : "Inactivo";
             }
         });
     }

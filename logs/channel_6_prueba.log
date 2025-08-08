@@ -8,5 +8,7 @@ ffmpeg version 2025-05-19-git-c55d65ac0a-essentials_build-www.gyan.dev Copyright
   libavfilter    11.  0.100 / 11.  0.100
   libswscale      9.  0.100 /  9.  0.100
   libswresample   6.  0.100 /  6.  0.100
-Error opening input file srt://0.0.0.0:9000?mode=listener.
-Exiting normally, received signal 2.
+[srt @ 000002c5a9514700] Connection to srt://192.168.1.28:9005?mode=caller failed: I/O error
+[in#0 @ 000002c5a9513f40] Error opening input: I/O error
+Error opening input file srt://192.168.1.28:9005?mode=caller.
+Error opening input files: I/O error
