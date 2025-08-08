@@ -197,8 +197,12 @@ class ChannelManager:
                 logging.info(f"Canal {self.name} detenido exitosamente")
 
     async def restart(self):
+        logging.info(f"Reiniciando canal {self.name}...")
         await self.stop()
         await self.start()
+        # Notificar a los clientes WebSocket sobre el reinicio
+        await self.channel_manager.broadcast_status()
+        logging.info(f"Canal {self.name} reiniciado exitosamente")
 
     def get_state(self) -> dict:
         return {
@@ -426,16 +430,65 @@ async def start_channel(channel_id: int):
 
 @app.post("/api/stop/{channel_id}")
 async def stop_channel(channel_id: int):
-    channel = channel_manager.channels.get(channel_id)
-    if not channel:
-        raise HTTPException(status_code=404, detail=f"Canal {channel_id} no encontrado")
+    # Verificar si el canal existe en el administrador de canales
+    if channel_id not in channel_manager.channels:
+        # Verificar si el canal existe en la configuración pero no está cargado
+        channel_config = next((c for c in config['channels'] if c.get('id') == channel_id), None)
+        if channel_config:
+            detail = f"El canal {channel_id} está en la configuración pero no está actualmente cargado. Intente reiniciar la aplicación."
+        else:
+            detail = f"No se encontró ningún canal con ID {channel_id} en la configuración actual."
+        
+        # Registrar el error para depuración
+        logging.warning(detail)
+        logging.warning(f"Canales cargados: {list(channel_manager.channels.keys())}")
+        
+        raise HTTPException(
+            status_code=404, 
+            detail=detail
+        )
 
+    channel = channel_manager.channels[channel_id]
+    
     try:
+        # Verificar si el canal ya está detenido
+        if not channel.process or channel.process.returncode is not None:
+            return {
+                "status": "success", 
+                "message": f"El canal {channel_id} ya estaba detenido",
+                "already_stopped": True
+            }
+            
+        # Detener el canal
         await channel.stop()
-        return {"status": "success", "message": f"Canal {channel_id} detenido"}
+        
+        return {
+            "status": "success", 
+            "message": f"Canal {channel_id} detenido correctamente",
+            "already_stopped": False
+        }
+        
     except Exception as e:
-        logging.error(f"Error al detener el canal {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = f"Error inesperado al detener el canal {channel_id}: {str(e)}"
+        logging.error(error_msg, exc_info=True)
+        
+        # Intentar forzar la detención si hay un error
+        try:
+            if channel and hasattr(channel, 'process') and channel.process:
+                channel.process.terminate()
+                channel.process.wait(timeout=5)
+                return {
+                    "status": "success",
+                    "message": f"Canal {channel_id} detenido forzosamente",
+                    "forced_stop": True
+                }
+        except Exception as force_error:
+            logging.error(f"Error al forzar la detención del canal {channel_id}: {force_error}")
+        
+        raise HTTPException(
+            status_code=500, 
+            detail=error_msg
+        )
 
 @app.post("/api/channels")
 async def create_channel(request: Request):
@@ -454,7 +507,7 @@ async def create_channel(request: Request):
             
         # Validate remote config for caller mode
         if data['mode'] == 'caller':
-            if 'remote_ip' not in data or 'remote_port' not in data:
+            if 'remote_ip' not in data or 'remote_ip' not in data:
                 raise HTTPException(status_code=400, detail="remote_ip and remote_port are required for Caller mode")
         
         # Add the new channel
@@ -483,13 +536,23 @@ async def delete_channel(channel_id: int):
         # Detener el canal si está activo
         await channel.stop()
         
+        # Cerrar el archivo de log si está abierto
+        if hasattr(channel, 'log_file') and channel.log_file and not channel.log_file.closed:
+            try:
+                channel.log_file.close()
+            except Exception as e:
+                logging.warning(f"Error cerrando archivo de log: {e}")
+        
         # Eliminar el archivo de log si existe
-        log_path = Path(f"logs/channel_{channel_id}_{channel.name}.log")
+        log_dir = Path(config.get('log_directory', 'logs'))
+        log_path = log_dir / f"channel_{channel_id}_{channel.name}.log"
+        
         if log_path.exists():
             try:
                 log_path.unlink()
+                logging.info(f"Archivo de log eliminado: {log_path}")
             except Exception as e:
-                logging.warning(f"No se pudo eliminar el archivo de log {log_path}: {e}")
+                logging.error(f"No se pudo eliminar el archivo de log {log_path}: {e}")
         
         # Eliminar el canal del config.json
         with open("config.json", "r") as f:
@@ -503,7 +566,8 @@ async def delete_channel(channel_id: int):
             json.dump(config_data, f, indent=4)
         
         # Eliminar el canal del manager
-        del channel_manager.channels[channel_id]
+        if channel_id in channel_manager.channels:
+            del channel_manager.channels[channel_id]
         
         # Notificar a los clientes WebSocket
         await channel_manager.broadcast_status()
@@ -511,8 +575,100 @@ async def delete_channel(channel_id: int):
         return {"status": "success", "message": f"Canal {channel_id} eliminado correctamente"}
         
     except Exception as e:
-        logging.error(f"Error al eliminar el canal {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.error(f"Error al eliminar el canal {channel_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al eliminar el canal: {str(e)}")
+
+@app.put("/api/channels/{channel_id}")
+async def update_channel(channel_id: int, request: Request):
+    # Get the channel
+    channel = channel_manager.channels.get(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail=f"Canal {channel_id} no encontrado")
+    
+    try:
+        data = await request.json()
+        
+        # Validate required fields
+        if 'mode' not in data:
+            raise HTTPException(status_code=400, detail="El campo 'mode' es requerido")
+            
+        # Validate mode
+        if data['mode'] not in ['listener', 'caller']:
+            raise HTTPException(status_code=400, detail="Modo inválido. Debe ser 'listener' o 'caller'")
+            
+        # Validate remote config for caller mode
+        if data['mode'] == 'caller':
+            if 'remote_ip' not in data or not data['remote_ip']:
+                raise HTTPException(status_code=400, detail="remote_ip es requerido para el modo Caller")
+            if 'remote_port' not in data or not data['remote_port']:
+                raise HTTPException(status_code=400, detail="remote_port es requerido para el modo Caller")
+            try:
+                port = int(data['remote_port'])
+                if port < 1 or port > 65535:
+                    raise ValueError("Puerto fuera de rango")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Puerto remoto inválido. Debe ser un número entre 1 y 65535")
+        
+        # Load current config
+        with open("config.json", "r") as f:
+            config_data = json.load(f)
+            
+        # Find and update the channel config
+        channel_updated = False
+        for ch in config_data["channels"]:
+            if ch["id"] == channel_id:
+                # Update mode and name
+                ch["mode"] = data['mode']
+                
+                # Update name if provided
+                if 'name' in data and data['name']:
+                    ch["name"] = data['name']
+                    
+                # Update remote config for caller mode
+                if data['mode'] == 'caller':
+                    ch["remote_ip"] = data['remote_ip']
+                    ch["remote_port"] = int(data['remote_port'])
+                else:
+                    # Remove remote_ip and remote_port for listener mode
+                    ch.pop("remote_ip", None)
+                    ch.pop("remote_port", None)
+                    
+                channel_updated = True
+                break
+                
+        if not channel_updated:
+            raise HTTPException(status_code=404, detail=f"Canal {channel_id} no encontrado en la configuración")
+            
+        # Save updated config
+        with open("config.json", "w") as f:
+            json.dump(config_data, f, indent=4)
+            
+        # Update channel in memory
+        channel.mode = data['mode']
+        if 'name' in data and data['name']:
+            channel.name = data['name']
+        if data['mode'] == 'caller':
+            channel.remote_ip = data['remote_ip']
+            channel.remote_port = int(data['remote_port'])
+        else:
+            channel.remote_ip = None
+            channel.remote_port = None
+            
+        # Restart channel with new config
+        await channel.restart()
+        
+        # Broadcast status update to all connected clients
+        await channel_manager.broadcast_status()
+        
+        return {"status": "success", "message": f"Configuración del canal {channel_id} actualizada correctamente"}
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Datos JSON inválidos")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.exception(f"Error al actualizar el canal {channel_id}")
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 # --- Servir Frontend ---
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")

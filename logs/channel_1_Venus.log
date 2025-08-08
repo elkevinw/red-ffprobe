@@ -8,5 +8,25 @@ ffmpeg version 2025-05-19-git-c55d65ac0a-essentials_build-www.gyan.dev Copyright
   libavfilter    11.  0.100 / 11.  0.100
   libswscale      9.  0.100 /  9.  0.100
   libswresample   6.  0.100 /  6.  0.100
-Error opening input file srt://0.0.0.0:9000?mode=listener.
-Exiting normally, received signal 2.
+Input #0, mpegts, from 'srt://0.0.0.0:9000?mode=listener':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Program 1 
+    Metadata:
+      service_name    : LarixBroadcaster-Android-1.5.3
+      service_provider: LarixBroadcaster-Android-1.5.3
+  Stream #0:0[0x100]: Video: h264 (High) ([27][0][0][0] / 0x001B), yuv420p(tv, bt709, progressive), 1280x720, 30 fps, 30 tbr, 90k tbn
+  Stream #0:1[0x101]: Audio: aac (LC) ([15][0][0][0] / 0x000F), 44100 Hz, mono, fltp, 50 kb/s, Start 0.017311
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> wrapped_avframe (native))
+  Stream #0:1 -> #0:1 (aac (native) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf62.0.102
+  Stream #0:0: Video: wrapped_avframe, yuv420p(tv, bt709, progressive), 1280x720, q=2-31, 200 kb/s, 30 fps, 30 tbn
+    Metadata:
+      encoder         : Lavc62.3.101 wrapped_avframe
+  Stream #0:1: Audio: pcm_s16le, 44100 Hz, mono, s16, 705 kb/s
+    Metadata:
+      encoder         : Lavc62.3.101 pcm_s16le
+frame=  154 fps=0.0 q=-0.0 size=N/A time=00:00:05.13 bitrate=N/A speed=  10x elapsed=0:00:00.51    frame=  168 fps=162 q=-0.0 size=N/A time=00:00:05.60 bitrate=N/A speed=5.41x elapsed=0:00:01.03    frame=  183 fps=119 q=-0.0 size=N/A time=00:00:06.10 bitrate=N/A speed=3.96x elapsed=0:00:01.54    frame=  199 fps= 96 q=-0.0 size=N/A time=00:00:06.63 bitrate=N/A speed=3.22x elapsed=0:00:02.06    frame=  215 fps= 83 q=-0.0 size=N/A time=00:00:07.16 bitrate=N/A speed=2.77x elapsed=0:00:02.58    frame=  231 fps= 75 q=-0.0 size=N/A time=00:00:07.70 bitrate=N/A speed=2.49x elapsed=0:00:03.09    frame=  246 fps= 68 q=-0.0 size=N/A time=00:00:08.20 bitrate=N/A speed=2.27x elapsed=0:00:03.60    frame=  261 fps= 63 q=-0.0 size=N/A time=00:00:08.70 bitrate=N/A speed=2.11x elapsed=0:00:04.12    frame=  278 fps= 60 q=-0.0 size=N/A time=00:00:09.26 bitrate=N/A speed=   2x elapsed=0:00:04.64    frame=  292 fps= 57 q=-0.0 size=N/A time=00:00:09.73 bitrate=N/A speed=1.89x elapsed=0:00:05.14    frame=  308 fps= 54 q=-0.0 size=N/A time=00:00:10.26 bitrate=N/A speed=1.81x elapsed=0:00:05.66    frame=  323 fps= 52 q=-0.0 size=N/A time=00:00:10.76 bitrate=N/A speed=1.74x elapsed=0:00:06.19    frame=  338 fps= 50 q=-0.0 size=N/A time=00:00:11.26 bitrate=N/A speed=1.68x elapsed=0:00:06.69    frame=  353 fps= 49 q=-0.0 size=N/A time=00:00:11.76 bitrate=N/A speed=1.63x elapsed=0:00:07.21    frame=  371 fps= 48 q=-0.0 size=N/A time=00:00:12.36 bitrate=N/A speed= 1.6x elapsed=0:00:07.73    frame=  385 fps= 47 q=-0.0 size=N/A time=00:00:12.83 bitrate=N/A speed=1.55x elapsed=0:00:08.25    frame=  401 fps= 46 q=-0.0 size=N/A time=00:00:13.36 bitrate=N/A speed=1.53x elapsed=0:00:08.76    frame=  416 fps= 45 q=-0.0 size=N/A time=00:00:13.86 bitrate=N/A speed=1.49x elapsed=0:00:09.28    frame=  433 fps= 44 q=-0.0 size=N/A time=00:00:14.36 bitrate=N/A speed=1.47x elapsed=0:00:09.79    frame=  447 fps= 43 q=-0.0 size=N/A time=00:00:14.90 bitrate=N/A speed=1.44x elapsed=0:00:10.31    frame=  463 fps= 43 q=-0.0 size=N/A time=00:00:15.43 bitrate=N/A speed=1.43x elapsed=0:00:10.82    frame=  477 fps= 42 q=-0.0 size=N/A time=00:00:15.90 bitrate=N/A speed= 1.4x elapsed=0:00:11.34    frame=  493 fps= 42 q=-0.0 size=N/A time=00:00:16.43 bitrate=N/A speed=1.39x elapsed=0:00:11.85    frame=  507 fps= 41 q=-0.0 size=N/A time=00:00:16.90 bitrate=N/A speed=1.37x elapsed=0:00:12.37    frame=  524 fps= 41 q=-0.0 size=N/A time=00:00:17.46 bitrate=N/A speed=1.35x elapsed=0:00:12.89    frame=  539 fps= 40 q=-0.0 size=N/A time=00:00:17.96 bitrate=N/A speed=1.34x elapsed=0:00:13.40    frame=  556 fps= 40 q=-0.0 size=N/A time=00:00:18.53 bitrate=N/A speed=1.33x elapsed=0:00:13.92    frame=  571 fps= 40 q=-0.0 size=N/A time=00:00:19.03 bitrate=N/A speed=1.32x elapsed=0:00:14.43    frame=  585 fps= 39 q=-0.0 size=N/A time=00:00:19.50 bitrate=N/A speed= 1.3x elapsed=0:00:14.95    

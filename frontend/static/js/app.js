@@ -41,16 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         socket.onmessage = function(event) {
             try {
-                const channels = JSON.parse(event.data);
-                console.log("Datos recibidos:", channels);
+                const data = JSON.parse(event.data);
+                console.log("Datos recibidos:", data);
 
                 // Guardar los canales en window.channels para acceso global
-                window.channels = Array.isArray(channels) ? [...channels] : [channels];
+                window.channels = Array.isArray(data) ? [...data] : [data];
 
-                if (Array.isArray(channels)) {
-                    updateChannelsTable(channels);
+                if (Array.isArray(data)) {
+                    updateChannelsTable(data);
                 } else {
-                    updateChannelsTable([channels]);
+                    window.channels.push(data);
+                    // Actualizar solo la fila del canal específico
+                    updateChannelStatus(data.id, data.status);
                 }
             } catch (error) {
                 console.error("Error al procesar el mensaje:", error);
@@ -110,10 +112,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${channel.pid || 'N/A'}</td>
                 <td class="action-buttons">
                     <button class="start-btn ${isActive ? 'active' : ''}" data-id="${channel.id}">
-                        ${isActive ? 'Activo' : 'Reiniciar'}
+                        ${isActive ? 'Activo' : 'Iniciar'}
                     </button>
-                    <button class="restart-btn ${isActive ? 'active' : ''}" data-id="${channel.id}">
-                        ${isActive ? 'Activo' : 'Stop'}
+                    <button class="stop-btn ${!isActive ? 'inactive' : ''}" data-id="${channel.id}">
+                        Detener
+                    </button>
+                    <button class="restart-btn" data-id="${channel.id}">
+                        Reiniciar
                     </button>
                     <button class="configure-btn" data-id="${channel.id}">
                         Mode
@@ -181,26 +186,109 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Manejador de eventos para los botones
     document.addEventListener('click', function(event) {
-        if (event.target && event.target.classList.contains('restart-btn')) {
+        // Manejar botón de detener (que actualmente está como restart-btn)
+        if (event.target && event.target.classList.contains('stop-btn')) {
+            event.preventDefault();
             const channelId = event.target.getAttribute('data-id');
             const row = event.target.closest('tr');
-            console.log(`Reiniciando canal ${channelId}...`);
             
-            // Mostrar indicador de carga
-            const statusCell = row.querySelector('.status-cell');
-            statusCell.innerHTML = '<span class="status-indicator loading"></span> Reiniciando...';
+            // Validar que tengamos un ID de canal válido
+            if (!channelId) {
+                console.error("Error: No se pudo obtener el ID del canal");
+                return;
+            }
+            
+            console.log("ID enviado al backend para detener:", channelId);
+            
+            // Actualizar el texto del botón a "Deteniendo..."
+            event.target.textContent = 'Deteniendo...';
+            event.target.disabled = true;
+            
+            // Actualizar el estado visual
+            const statusCell = row.querySelector('td:nth-child(2) .status-text');
+            if (statusCell) {
+                statusCell.innerHTML = '<span class="status-indicator loading"></span> Deteniendo...';
+            }
+            
+            // Enviar solicitud para detener el canal
+            fetch(`/api/stop/${channelId}`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.detail || 'Error al detener el canal');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(`Canal ${channelId} detenido:`, data);
+                // La actualización vendrá a través de WebSocket
+            })
+            .catch(error => {
+                console.error(`Error al detener el canal ${channelId}:`, error);
+                if (statusCell) {
+                    statusCell.innerHTML = `<span class="status-indicator error"></span> ${error.message || 'Error'}`;
+                }
+                // Restaurar el botón a su estado original
+                event.target.textContent = 'Detener';
+                event.target.disabled = false;
+            });
+        } else if (event.target && event.target.classList.contains('restart-btn')) {
+            event.preventDefault();
+            const channelId = event.target.getAttribute('data-id');
+            const row = event.target.closest('tr');
+            
+            // Validar que tengamos un ID de canal válido
+            if (!channelId) {
+                console.error("Error: No se pudo obtener el ID del canal");
+                return;
+            }
+            
+            console.log("ID enviado al backend para reiniciar:", channelId);
+            
+            // Actualizar el texto del botón a "Reiniciando..."
+            event.target.textContent = 'Reiniciando...';
+            event.target.disabled = true;
+            
+            // Actualizar el estado visual
+            const statusCell = row.querySelector('td:nth-child(2) .status-text');
+            if (statusCell) {
+                statusCell.innerHTML = '<span class="status-indicator loading"></span> Reiniciando...';
+            }
             
             // Enviar solicitud para reiniciar el canal
-            fetch(`/api/channels/${channelId}/restart`, { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    console.log(`Canal ${channelId} reiniciado:`, data);
-                    // La actualización vendrá a través de WebSocket
-                })
-                .catch(error => {
-                    console.error(`Error al reiniciar el canal ${channelId}:`, error);
-                    statusCell.innerHTML = '<span class="status-indicator error"></span> Error';
-                });
+            fetch(`/api/restart/${channelId}`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.detail || 'Error al reiniciar el canal');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(`Canal ${channelId} reiniciado:`, data);
+                // La actualización vendrá a través de WebSocket
+            })
+            .catch(error => {
+                console.error(`Error al reiniciar el canal ${channelId}:`, error);
+                if (statusCell) {
+                    statusCell.innerHTML = `<span class="status-indicator error"></span> ${error.message || 'Error'}`;
+                }
+                // Restaurar el botón a su estado original
+                event.target.textContent = 'Reiniciar';
+                event.target.disabled = false;
+            });
         } else if (event.target && event.target.classList.contains('configure-btn')) {
             const channelId = event.target.getAttribute('data-id');
             const channel = window.channels.find(c => c.id === parseInt(channelId));
