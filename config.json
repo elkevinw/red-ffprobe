@@ -30,13 +30,6 @@
             "name": "Azteca Deportes",
             "enabled": true,
             "srt_port": 9004
-        },
-        {
-            "id": 6,
-            "name": "pruebonga",
-            "mode": "listener",
-            "enabled": true,
-            "local_port": 9006
         }
     ],
     "srt_base_port": 8999,

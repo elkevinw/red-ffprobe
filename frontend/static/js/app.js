@@ -118,6 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="configure-btn" data-id="${channel.id}">
                         Mode
                     </button>
+                    <button class="delete-btn" data-id="${channel.id}" data-name="${channel.name}">
+                        🗑️ Eliminar
+                    </button>
                 </td>
             `;
             
@@ -224,6 +227,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Mostrar el modal
                 document.getElementById('channelConfigModal').style.display = 'block';
+            }
+        } else if (event.target && event.target.classList.contains('delete-btn')) {
+            const channelId = event.target.getAttribute('data-id');
+            const channelName = event.target.getAttribute('data-name');
+            if (confirm(`¿Estás seguro de eliminar el canal ${channelName}?`)) {
+                fetch(`/api/channels/${channelId}`, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(`Canal ${channelId} eliminado:`, data);
+                        // La actualización vendrá a través de WebSocket
+                    })
+                    .catch(error => {
+                        console.error(`Error al eliminar el canal ${channelId}:`, error);
+                    });
             }
         }
     });

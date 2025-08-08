@@ -472,6 +472,48 @@ async def create_channel(request: Request):
         logging.exception("Unexpected error in create_channel")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@app.delete("/api/channels/{channel_id}")
+async def delete_channel(channel_id: int):
+    # Buscar el canal
+    channel = channel_manager.channels.get(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Canal no encontrado")
+    
+    try:
+        # Detener el canal si está activo
+        await channel.stop()
+        
+        # Eliminar el archivo de log si existe
+        log_path = Path(f"logs/channel_{channel_id}_{channel.name}.log")
+        if log_path.exists():
+            try:
+                log_path.unlink()
+            except Exception as e:
+                logging.warning(f"No se pudo eliminar el archivo de log {log_path}: {e}")
+        
+        # Eliminar el canal del config.json
+        with open("config.json", "r") as f:
+            config_data = json.load(f)
+        
+        # Filtrar el canal a eliminar
+        config_data["channels"] = [ch for ch in config_data["channels"] if ch["id"] != channel_id]
+        
+        # Guardar los cambios
+        with open("config.json", "w") as f:
+            json.dump(config_data, f, indent=4)
+        
+        # Eliminar el canal del manager
+        del channel_manager.channels[channel_id]
+        
+        # Notificar a los clientes WebSocket
+        await channel_manager.broadcast_status()
+        
+        return {"status": "success", "message": f"Canal {channel_id} eliminado correctamente"}
+        
+    except Exception as e:
+        logging.error(f"Error al eliminar el canal {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- Servir Frontend ---
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
