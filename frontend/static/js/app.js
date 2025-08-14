@@ -361,9 +361,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 remoteConfig.classList.toggle('hidden', mode !== 'caller');
                 
                 // Si hay configuración remota, llenar los campos
-                if (mode === 'caller' && channel.remote_ip && channel.remote_port) {
-                    document.getElementById('remoteIp').value = channel.remote_ip;
-                    document.getElementById('remotePort').value = channel.remote_port;
+                if (mode === 'caller') {
+                    if (channel.remote_ip && channel.remote_port) {
+                        document.getElementById('remoteIp').value = channel.remote_ip;
+                        document.getElementById('remotePort').value = channel.remote_port;
+                    }
+                    if (channel.local_port) {
+                        document.getElementById('localPortConfig').value = channel.local_port;
+                    }
                 }
                 
                 // Mostrar el modal
@@ -411,10 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'caller') {
             configData.remote_ip = document.getElementById('remoteIp').value;
             configData.remote_port = parseInt(document.getElementById('remotePort').value);
+            configData.local_port = parseInt(document.getElementById('localPortConfig').value);
             
             // Validar campos requeridos
-            if (!configData.remote_ip || !configData.remote_port) {
-                alert('Por favor complete la dirección IP y puerto remoto para el modo Caller');
+            if (!configData.remote_ip || !configData.remote_port || !configData.local_port) {
+                alert('Por favor complete la dirección IP, puerto remoto y puerto local para el modo Caller');
                 return;
             }
         }

@@ -92,16 +92,22 @@ class ChannelManager:
 
         command = self.build_command()
         try:
-            # Abrir archivo de log para stdout y stderr
-            self.log_file = open(self.log_path, 'w')  # Cambiado de 'a' a 'w'
+            # Asegurarse de que el directorio de logs existe
+            self.log_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Abrir archivo de log para escritura
+            self.log_file = open(self.log_path, 'w', buffering=1)  # Line buffering
+            
             logging.info(f"Iniciando proceso para canal {self.name} con comando: {' '.join(command)}")
             
-            # Iniciar el proceso usando subprocess.Popen
+            # Iniciar el proceso con buffer de línea
             self.process = subprocess.Popen(
                 command,
                 stdout=self.log_file,
                 stderr=subprocess.STDOUT,
-                text=True
+                text=True,
+                bufsize=1,  # Line buffering
+                universal_newlines=True
             )
             
             if not self.process:
@@ -110,61 +116,71 @@ class ChannelManager:
             self.status = "listening"
             logging.info(f"Proceso para canal {self.name} iniciado con PID: {self.process.pid}")
             
-            # Notificar a los clientes WebSocket sobre el cambio de estado
-            await self.channel_manager.broadcast_status()
-            
             # Iniciar tarea para leer la salida del proceso
             asyncio.create_task(self.read_output())
+            
+            # Notificar a los clientes WebSocket sobre el cambio de estado
+            await self.channel_manager.broadcast_status()
             
         except Exception as e:
             logging.exception(f"Error al iniciar el proceso para el canal {self.name}: {str(e)}")
             self.status = "error"
             await self.channel_manager.broadcast_status()
-            if self.log_file:
-                self.log_file.close()
-
-    async def read_output(self):
-        """Lee y registra la salida del proceso ffmpeg"""
-        try:
-            while True:
-                if self.process.poll() is not None:
-                    break
-                    
-                # Leer línea por línea del archivo de log
-                with open(self.log_path, 'r') as f:
-                    f.seek(0, os.SEEK_END)  # Mover al final del archivo
-                    while True:
-                        line = f.readline()
-                        if not line:
-                            break
-                        
-                        decoded = line.strip()
-                        if decoded:
-                            logging.debug(f"[{self.name}] {decoded}")
-                            
-                            # Detectar si hay video activo (frame= y (fps= o bitrate=))
-                            if "frame=" in decoded and ("fps=" in decoded or "bitrate=" in decoded):
-                                prev_status = self.status
-                                self.status = "active"
-                                self.last_active_timestamp = time.time()
-                                
-                                # Notificar a los clientes WebSocket solo si el estado cambió
-                                if prev_status != "active":
-                                    await self.channel_manager.broadcast_status()
-                                    logging.info(f"Canal {self.name} detectado como ACTIVO (video recibido)")
-                            else:
-                                # Mantener el timestamp actualizado para cualquier actividad
-                                self.last_active_timestamp = time.time()
-                                
-                await asyncio.sleep(1)  # Esperar un segundo antes de leer nuevamente
-            
-        except Exception as e:
-            logging.error(f"Error leyendo salida de ffmpeg para {self.name}: {str(e)}")
-            
-        finally:
-            if self.log_file:
+            if self.log_file and not self.log_file.closed:
                 self.log_file.close()
                 self.log_file = None
+
+    async def read_output(self):
+        """Lee y registra la salida del proceso ffmpeg en tiempo real"""
+        try:
+            # Leer el archivo desde el principio para no perder líneas
+            last_position = 0
+            
+            while True:
+                if self.process is None or self.process.poll() is not None:
+                    break
+                    
+                try:
+                    with open(self.log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        # Ir a la última posición leída
+                        f.seek(last_position)
+                        
+                        # Leer nuevas líneas
+                        lines = f.readlines()
+                        
+                        # Actualizar la última posición
+                        last_position = f.tell()
+                        
+                        # Procesar cada línea
+                        for line in lines:
+                            line = line.strip()
+                            if line:
+                                logging.debug(f"[{self.name}] {line}")
+                                
+                                # Detectar si hay video activo (frame= y (fps= o bitrate=))
+                                if "frame=" in line and ("fps=" in line or "bitrate=" in line):
+                                    prev_status = self.status
+                                    self.status = "active"
+                                    self.last_active_timestamp = time.time()
+                                    
+                                    # Notificar a los clientes WebSocket solo si el estado cambió
+                                    if prev_status != "active":
+                                        await self.channel_manager.broadcast_status()
+                                        logging.info(f"Canal {self.name} detectado como ACTIVO (video recibido)")
+                                
+                except FileNotFoundError:
+                    # El archivo de log aún no existe, esperar un momento
+                    pass
+                except Exception as e:
+                    logging.error(f"Error al leer el archivo de log para {self.name}: {str(e)}")
+                
+                # Pequeña pausa para no saturar la CPU
+                await asyncio.sleep(0.1)
+                
+        except Exception as e:
+            logging.error(f"Error en read_output para {self.name}: {str(e)}")
+            
+        finally:
             # Si el proceso terminó inesperadamente, actualizar el estado
             if self.process and self.process.poll() is not None:
                 self.status = "error"
