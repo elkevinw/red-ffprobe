@@ -144,64 +144,97 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateChannelStatus(channelId, status) {
-        const row = document.getElementById(`channel-${channelId}`);
-        if (!row) return;
+        console.log(`Actualizando estado del canal ${channelId} a:`, status);
+        
+        // Convertir channelId a número si es necesario
+        const numericChannelId = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+        
+        // Encontrar la fila del canal
+        const row = document.getElementById(`channel-${numericChannelId}`);
+        if (!row) {
+            console.error(`No se encontró la fila para el canal ${numericChannelId}`);
+            return;
+        }
 
-        // Get the channel to check its mode
-        const channel = window.channels.find(c => c.id === channelId);
+        // Obtener el canal desde la lista global
+        const channel = window.channels.find(c => c.id === numericChannelId || c.id === channelId);
+        if (!channel) {
+            console.error(`No se encontró el canal con ID ${numericChannelId} en la lista de canales`);
+            return;
+        }
+
         const isListenerMode = channel && channel.mode === 'listener';
+        console.log(`Modo del canal ${channelId}:`, isListenerMode ? 'listener' : 'caller');
 
-        // Update status text
+        // Normalizar el estado a minúsculas para la comparación
+        const statusLower = (status || '').toLowerCase();
+        const isActive = statusLower === 'active' || statusLower === 'activo' || 
+                        statusLower === 'listening' || statusLower === 'escuchando';
+
+        console.log(`Estado normalizado:`, {status, statusLower, isActive});
+
+        // Actualizar el texto del estado
         const statusCell = row.querySelector('.status-text');
         if (statusCell) {
-            let statusText = "";
-            if (status === "active") {
-                statusText = isListenerMode ? "Escuchando" : "Activo";
-            } else {
-                statusText = status.toUpperCase();
-            }
+            let statusText = isActive ? 
+                (isListenerMode ? "Escuchando" : "Activo") : 
+                (status || "Inactivo").toUpperCase();
+                
             statusCell.innerHTML = `
                 <span class="status-indicator"></span>
                 ${statusText}
-                ${isListenerMode && status === 'active' ? 
+                ${isListenerMode && isActive ? 
                     '<span class="listening-indicator" title="Modo Listener Activo">🔊</span>' : ''}
             `;
+            
+            console.log(`Texto de estado actualizado a: ${statusText}`);
         }
 
-        // Update status indicator class
+        // Actualizar la clase del indicador de estado
         const statusIndicator = row.querySelector('.status-indicator');
         if (statusIndicator) {
             statusIndicator.className = "status-indicator";
-            const statusClass = (isListenerMode && status === 'active') ? 'listening' : 
-                              (status === 'active' ? 'active' : getStatusClass(status));
+            let statusClass = 'inactive';
+            
+            if (isActive) {
+                statusClass = isListenerMode ? 'listening' : 'active';
+            } else if (statusLower.includes('error') || statusLower.includes('fail') || statusLower.includes('caído')) {
+                statusClass = 'crashed';
+            }
+            
             statusIndicator.classList.add(statusClass);
+            row.className = `status-row ${statusClass}`;
+            
+            console.log(`Clase de estado actualizada a: ${statusClass}`);
         }
 
-        // Update buttons
+        // Actualizar botones
         const buttons = row.querySelectorAll('.action-buttons button');
         buttons.forEach(button => {
-            // Remove all status classes
+            // Eliminar todas las clases de estado
             button.classList.remove('active', 'listening', 'inactive', 'error', 'crashed');
             
-            // Handle stop button specifically
+            // Manejar el botón de detener específicamente
             if (button.classList.contains('stop-btn')) {
-                if (status === "active") {
-                    button.textContent = isListenerMode ? "Detener" : "Detener";
-                    button.classList.add('stop-btn');
-                } else {
-                    button.textContent = "Detener";
-                    button.classList.add('inactive');
-                }
+                button.textContent = "Detener";
+                button.classList.add(isActive ? 'stop-btn' : 'inactive');
+                console.log(`Botón detener actualizado. Activo: ${isActive}`);
             } 
-            // Handle other buttons
-            else if (status === "active") {
-                button.classList.add(isListenerMode ? 'listening' : 'active');
+            // Manejar otros botones
+            else if (isActive) {
+                const buttonClass = isListenerMode ? 'listening' : 'active';
+                button.classList.add(buttonClass);
                 button.textContent = isListenerMode ? "Escuchando" : "Activo";
+                console.log(`Botón actualizado a modo: ${buttonClass}`);
             } else {
-                button.classList.add(getStatusClass(status));
-                button.textContent = status === "error" ? "Error" : "Inactivo";
+                const buttonClass = getStatusClass(status);
+                button.classList.add(buttonClass);
+                button.textContent = statusLower.includes('error') ? "Error" : "Inactivo";
+                console.log(`Botón actualizado a estado: ${buttonClass}`);
             }
         });
+        
+        console.log(`Actualización de estado completada para el canal ${numericChannelId}`);
     }
 
     // Manejador de eventos para los botones

@@ -197,12 +197,8 @@ class ChannelManager:
                 logging.info(f"Canal {self.name} detenido exitosamente")
 
     async def restart(self):
-        logging.info(f"Reiniciando canal {self.name}...")
         await self.stop()
         await self.start()
-        # Notificar a los clientes WebSocket sobre el reinicio
-        await self.channel_manager.broadcast_status()
-        logging.info(f"Canal {self.name} reiniciado exitosamente")
 
     def get_state(self) -> dict:
         return {
