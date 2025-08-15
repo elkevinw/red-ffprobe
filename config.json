@@ -5,7 +5,8 @@
             "id": 1,
             "name": "Venus",
             "enabled": true,
-            "srt_port": 9000
+            "srt_port": 9000,
+            "mode": "listener"
         },
         {
             "id": 2,

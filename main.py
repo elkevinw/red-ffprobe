@@ -46,6 +46,10 @@ class ChannelManager:
         mode = channel_config.get('mode', 'listener')
         port = config['srt_base_port'] + self.id
         
+        # Get SRT options and replace placeholders
+        srt_options = config.get('srt_options', '')
+        srt_options = srt_options.replace('{srt_mode}', mode)
+        
         # Build SRT URL based on mode
         if mode == 'caller':
             # Validate required fields for Caller mode
@@ -55,9 +59,12 @@ class ChannelManager:
             if not remote_ip or not remote_port:
                 raise ValueError(f"Channel {self.name}: remote_ip and remote_port are required for Caller mode")
                 
-            srt_url = f"srt://{remote_ip}:{remote_port}?mode=caller"
+            srt_url = f"srt://{remote_ip}:{remote_port}{srt_options}"
+            # Add local port binding for caller mode
+            if 'localaddr' not in srt_url:
+                srt_url = f"srt://{remote_ip}:{remote_port}{srt_options}&localaddr=0.0.0.0:{self.local_port}"
         else:  # Default to Listener mode
-            srt_url = f"srt://0.0.0.0:{port}?mode=listener"
+            srt_url = f"srt://0.0.0.0:{port}{srt_options}"
 
         # Construye la URL Multicast
         multicast_ip_parts = config['multicast_base_ip'].split('.')
@@ -346,6 +353,11 @@ class GlobalChannelManager:
         
         # Add to config file
         self.save_channel_to_config(channel_config)
+        
+        # Reload configuration to ensure we have the latest data
+        global config
+        config = load_config()
+        self.config = config  # keep internal reference in sync
         
         # Create and start channel
         channel = ChannelManager(channel_config, self)
