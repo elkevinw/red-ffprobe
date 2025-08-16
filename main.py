@@ -138,7 +138,7 @@ class ChannelManager:
                 self.log_file = None
 
     async def read_output(self):
-        """Lee y registra la salida del proceso ffmpeg en tiempo real"""
+        """Lee y registra la salida del proceso ffmpeg"""
         try:
             # Leer el archivo desde el principio para no perder líneas
             last_position = 0
